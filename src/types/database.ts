@@ -9,6 +9,12 @@ export interface DbProduct {
   category_id: string | null;
   subcategory: string;
   delivery_type: 'instant' | 'manual';
+  delivery_min?: number;
+  delivery_max?: number;
+  delivery_unit?: 'hours' | 'days';
+  gallery?: Array<string | { url: string; link?: string; title?: string }>;
+  external_link?: string | null;
+  project_id?: string | null;
   platform: string;
   region: string;
   tags: string[];

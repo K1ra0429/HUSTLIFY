@@ -545,6 +545,9 @@ export type Database = {
           category_id: string | null
           created_at: string
           delivery_type: string
+          delivery_min: number
+          delivery_max: number
+          delivery_unit: string
           description: string
           external_link: string | null
           features: string[]
@@ -579,6 +582,9 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           delivery_type?: string
+          delivery_min?: number
+          delivery_max?: number
+          delivery_unit?: string
           description?: string
           external_link?: string | null
           features?: string[]
@@ -613,6 +619,9 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           delivery_type?: string
+          delivery_min?: number
+          delivery_max?: number
+          delivery_unit?: string
           description?: string
           external_link?: string | null
           features?: string[]

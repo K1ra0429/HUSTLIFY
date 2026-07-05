@@ -32,7 +32,32 @@ async function call<T = any>(action: string, payload: Record<string, unknown> = 
   return data as T;
 }
 
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(',')[1] || '');
+    };
+    reader.onerror = () => reject(new Error('Не удалось прочитать файл'));
+    reader.readAsDataURL(file);
+  });
+}
+
 export const adminApi = {
+  uploadFile: async (file: File, folder?: string): Promise<string> => {
+    if (file.size > 8 * 1024 * 1024) {
+      throw new AdminApiError('Файл слишком большой (максимум 8 МБ)');
+    }
+    const fileBase64 = await fileToBase64(file);
+    const { url } = await call<{ url: string }>('storage.upload', {
+      fileBase64,
+      fileName: file.name,
+      contentType: file.type,
+      folder,
+    });
+    return url;
+  },
   login: async (password: string) => {
     const { token } = await call<{ token: string }>('login', { password });
     adminAuth.setToken(token);

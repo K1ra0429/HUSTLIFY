@@ -5,13 +5,23 @@ import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 import { adminApi } from '@/lib/adminApi';
 
-const KNOWN_KEYS: { key: string; label: string }[] = [
+const KNOWN_KEYS: { key: string; label: string; hint?: string }[] = [
   { key: 'shop_name', label: 'Название магазина' },
   { key: 'marquee_text', label: 'Бегущая строка' },
   { key: 'welcome_text', label: 'Приветствие в боте' },
   { key: 'support_username', label: 'Поддержка (Telegram, без @)' },
   { key: 'faq_url', label: 'Ссылка на FAQ' },
   { key: 'policy_url', label: 'Ссылка на политику' },
+  {
+    key: 'op_channel_id',
+    label: 'Обязательная подписка: ID/username канала',
+    hint: 'Например @HustlifyChannel. Бот должен быть админом канала, иначе проверка не сработает. Оставьте пустым, чтобы отключить проверку.',
+  },
+  {
+    key: 'op_channel_url',
+    label: 'Обязательная подписка: ссылка на канал',
+    hint: 'Публичная ссылка, которую увидит пользователь, например https://t.me/HustlifyChannel',
+  },
 ];
 
 const SettingsTab = () => {
@@ -50,7 +60,7 @@ const SettingsTab = () => {
 
   return (
     <div className="space-y-4 max-w-xl">
-      {KNOWN_KEYS.map(({ key, label }) => (
+      {KNOWN_KEYS.map(({ key, label, hint }) => (
         <div key={key} className="rounded-xl border border-border bg-card p-3">
           <label className="text-xs text-muted-foreground mb-1.5 block">{label} <span className="opacity-50">({key})</span></label>
           <div className="flex gap-2">
@@ -59,6 +69,7 @@ const SettingsTab = () => {
               {savingKey === key ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             </Button>
           </div>
+          {hint && <p className="text-[11px] text-muted-foreground mt-1.5">{hint}</p>}
         </div>
       ))}
     </div>

@@ -165,6 +165,33 @@ serve(async (req) => {
         return jsonRes({ ok: true });
       }
 
+      // ===== STORAGE (image uploads from the admin panel) =====
+      case "storage.upload": {
+        const { fileBase64, fileName, contentType, folder } = body;
+        if (!fileBase64 || !fileName) return jsonRes({ error: "fileBase64 and fileName required" }, 400);
+        // ~8MB decoded limit (base64 is ~4/3 the size of the original bytes)
+        if (fileBase64.length > 11_000_000) {
+          return jsonRes({ error: "Файл слишком большой (максимум ~8 МБ)" }, 400);
+        }
+        let bytes: Uint8Array;
+        try {
+          bytes = Uint8Array.from(atob(fileBase64), (c) => c.charCodeAt(0));
+        } catch {
+          return jsonRes({ error: "Некорректные данные файла" }, 400);
+        }
+        const rawExt = (String(fileName).split(".").pop() || "jpg").toLowerCase();
+        const ext = /^[a-z0-9]{2,5}$/.test(rawExt) ? rawExt : "jpg";
+        const safeFolder = typeof folder === "string" ? folder.replace(/[^a-z0-9-_]/gi, "") : "";
+        const key = `${safeFolder ? safeFolder + "/" : ""}${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+        const { error } = await supabase.storage.from("product-images").upload(key, bytes, {
+          contentType: contentType || "application/octet-stream",
+          upsert: false,
+        });
+        if (error) throw error;
+        const { data } = supabase.storage.from("product-images").getPublicUrl(key);
+        return jsonRes({ url: data.publicUrl });
+      }
+
       // ===== PRODUCTS =====
       case "products.list": {
         const { data, error } = await supabase.from("products").select("*").order("sort_order");

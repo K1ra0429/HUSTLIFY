@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useSupportUsername } from '@/hooks/useSupportUsername';
 import { useStorefront, useStorefrontPath } from '@/contexts/StorefrontContext';
 import PriceRub from '@/components/PriceRub';
+import { deliveryRangeText, type DeliveryUnit } from '@/lib/deliveryText';
 
 const categoryEmoji: Record<string, string> = {
   'social-media': '📱', 'gaming': '🎮', 'streaming': '🎬', 'software': '🔑',
@@ -154,7 +155,11 @@ const ProductDetails = () => {
             <p className="text-xs sm:text-sm text-muted-foreground">
               {product.delivery_type === 'instant'
                 ? 'Этот товар доставляется мгновенно после подтверждения оплаты.'
-                : 'Этот товар требует ручной обработки. Доставка обычно занимает от 1 до 24 часов.'}
+                : `Этот товар требует ручной обработки. Доставка обычно занимает ${deliveryRangeText(
+                    product.delivery_min ?? 1,
+                    product.delivery_max ?? 24,
+                    (product.delivery_unit as DeliveryUnit) ?? 'hours',
+                  )}.`}
             </p>
           </div>
         </div>
