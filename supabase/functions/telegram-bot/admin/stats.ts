@@ -13,6 +13,26 @@ const RANGES: Record<string, { label: string; days: number | null }> = {
   all: { label: "Всё время", days: null },
 };
 
+// Supabase caps any single .select() at 1000 rows by default. For stats we
+// need the TRUE totals, not a 1000-row sample, so page through with .range()
+// until a page comes back short.
+async function fetchAll<T = any>(
+  build: (from: number, to: number) => any,
+  pageSize = 1000,
+): Promise<T[]> {
+  const out: T[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await build(from, from + pageSize - 1);
+    if (error) throw error;
+    const rows = (data ?? []) as T[];
+    out.push(...rows);
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
+  return out;
+}
+
 function rangeButtons(view: string, range: string) {
   return Object.entries(RANGES).map(([k, v]) => ({
     text: (range === k ? "• " : "") + v.label,
@@ -51,25 +71,36 @@ async function showMain(chatId: number, msgId: number | undefined, range: string
   const r = RANGES[range] ?? RANGES.w;
   const since = r.days ? new Date(Date.now() - r.days * 86400_000).toISOString() : null;
 
-  let oq = supabase.from("orders").select("total_amount, payment_status, status, created_at", { count: "exact" });
-  if (since) oq = oq.gte("created_at", since);
-  const { data: orders, count: ordersCount } = await oq;
+  const orders = await fetchAll((from, to) => {
+    let q = supabase
+      .from("orders")
+      .select("total_amount, payment_status, status, created_at")
+      .range(from, to);
+    if (since) q = q.gte("created_at", since);
+    return q;
+  });
+  const ordersCount = orders.length;
 
-  const paid = (orders ?? []).filter((o) => o.payment_status === "paid");
+  const paid = orders.filter((o) => o.payment_status === "paid");
   const revenue = paid.reduce((s, o) => s + Number(o.total_amount || 0), 0);
   const aov = paid.length ? revenue / paid.length : 0;
-  const conv = (ordersCount ?? 0) > 0 ? (paid.length / (ordersCount ?? 1)) * 100 : 0;
+  const conv = ordersCount > 0 ? (paid.length / ordersCount) * 100 : 0;
 
   const byStatus = new Map<string, number>();
-  for (const o of orders ?? []) byStatus.set(o.status, (byStatus.get(o.status) ?? 0) + 1);
+  for (const o of orders) byStatus.set(o.status, (byStatus.get(o.status) ?? 0) + 1);
   const statusLine = Array.from(byStatus.entries())
     .map(([s, n]) => `<code>${s}</code>: ${n}`).join(" · ") || "—";
 
-  const { data: users, count: usersTotal } = await supabase
-    .from("user_profiles").select("telegram_id, balance, is_blocked, created_at", { count: "exact" });
-  const newUsers = since ? (users ?? []).filter((u) => u.created_at >= since).length : (usersTotal ?? 0);
-  const blocked = (users ?? []).filter((u) => u.is_blocked).length;
-  const totalBalance = (users ?? []).reduce((s, u) => s + Number(u.balance || 0), 0);
+  const users = await fetchAll((from, to) =>
+    supabase
+      .from("user_profiles")
+      .select("telegram_id, balance, is_blocked, created_at")
+      .range(from, to),
+  );
+  const usersTotal = users.length;
+  const newUsers = since ? users.filter((u) => u.created_at >= since).length : usersTotal;
+  const blocked = users.filter((u) => u.is_blocked).length;
+  const totalBalance = users.reduce((s, u) => s + Number(u.balance || 0), 0);
 
   const { count: invAvail } = await supabase
     .from("inventory_items").select("id", { count: "exact", head: true }).eq("status", "available");
@@ -88,12 +119,12 @@ async function showMain(chatId: number, msgId: number | undefined, range: string
     `📊 <b>Статистика — ${r.label}</b>`,
     ``,
     `🛒 <b>Заказы</b>`,
-    `Всего: <b>${fmt(ordersCount ?? 0)}</b> · Оплачено: <b>${fmt(paid.length)}</b> · Конверсия: <b>${conv.toFixed(1)}%</b>`,
+    `Всего: <b>${fmt(ordersCount)}</b> · Оплачено: <b>${fmt(paid.length)}</b> · Конверсия: <b>${conv.toFixed(1)}%</b>`,
     `Выручка: <b>${money(revenue)}</b> · Средний чек: <b>${money(aov)}</b>`,
     `Статусы: ${statusLine}`,
     ``,
     `👥 <b>Пользователи</b>`,
-    `Всего: <b>${fmt(usersTotal ?? 0)}</b> · Новых за период: <b>${fmt(newUsers)}</b>`,
+    `Всего: <b>${fmt(usersTotal)}</b> · Новых за период: <b>${fmt(newUsers)}</b>`,
     `Заблокировано: <b>${fmt(blocked)}</b> · Баланс на счетах: <b>${money(totalBalance)}</b>`,
     ``,
     `📦 <b>Каталог</b>`,
@@ -117,22 +148,39 @@ async function showTopProducts(chatId: number, msgId: number | undefined, range:
   const r = RANGES[range] ?? RANGES.w;
   const since = r.days ? new Date(Date.now() - r.days * 86400_000).toISOString() : null;
 
-  let oq = supabase.from("orders").select("id, payment_status, created_at").eq("payment_status", "paid");
-  if (since) oq = oq.gte("created_at", since);
-  const { data: paidOrders } = await oq.limit(1000);
-  const orderIds = (paidOrders ?? []).map((o) => o.id);
+  const paidOrders = await fetchAll((from, to) => {
+    let q = supabase
+      .from("orders")
+      .select("id, payment_status, created_at")
+      .eq("payment_status", "paid")
+      .range(from, to);
+    if (since) q = q.gte("created_at", since);
+    return q;
+  });
+  const orderIds = paidOrders.map((o) => o.id);
 
   let lines: string[] = [];
   if (!orderIds.length) {
     lines = ["—"];
   } else {
-    const { data: items } = await supabase
-      .from("order_items")
-      .select("product_id, product_title, product_price, quantity")
-      .in("order_id", orderIds);
+    // order_items is fetched per-order-id batch too, since `.in()` combined
+    // with a large orderIds list can also exceed the row cap.
+    const items: any[] = [];
+    const CHUNK = 500;
+    for (let i = 0; i < orderIds.length; i += CHUNK) {
+      const chunkIds = orderIds.slice(i, i + CHUNK);
+      const rows = await fetchAll((from, to) =>
+        supabase
+          .from("order_items")
+          .select("product_id, product_title, product_price, quantity")
+          .in("order_id", chunkIds)
+          .range(from, to),
+      );
+      items.push(...rows);
+    }
 
     const agg = new Map<string, { title: string; qty: number; revenue: number }>();
-    for (const it of items ?? []) {
+    for (const it of items) {
       const key = it.product_id;
       const cur = agg.get(key) ?? { title: it.product_title, qty: 0, revenue: 0 };
       cur.qty += Number(it.quantity || 0);
@@ -160,12 +208,18 @@ async function showTopBuyers(chatId: number, msgId: number | undefined, range: s
   const r = RANGES[range] ?? RANGES.w;
   const since = r.days ? new Date(Date.now() - r.days * 86400_000).toISOString() : null;
 
-  let oq = supabase.from("orders").select("telegram_id, total_amount, payment_status, created_at").eq("payment_status", "paid");
-  if (since) oq = oq.gte("created_at", since);
-  const { data: paid } = await oq.limit(2000);
+  const paid = await fetchAll((from, to) => {
+    let q = supabase
+      .from("orders")
+      .select("telegram_id, total_amount, payment_status, created_at")
+      .eq("payment_status", "paid")
+      .range(from, to);
+    if (since) q = q.gte("created_at", since);
+    return q;
+  });
 
   const agg = new Map<number, { tid: number; orders: number; revenue: number }>();
-  for (const o of paid ?? []) {
+  for (const o of paid) {
     const tid = Number(o.telegram_id);
     const cur = agg.get(tid) ?? { tid, orders: 0, revenue: 0 };
     cur.orders += 1;
@@ -204,16 +258,20 @@ async function showDaily(chatId: number, msgId: number | undefined, range: strin
   const days = r.days ?? 30; // for "all" — show last 30 days
   const since = new Date(Date.now() - days * 86400_000).toISOString();
 
-  const { data: orders } = await supabase
-    .from("orders").select("total_amount, payment_status, created_at")
-    .gte("created_at", since).limit(5000);
+  const orders = await fetchAll((from, to) =>
+    supabase
+      .from("orders")
+      .select("total_amount, payment_status, created_at")
+      .gte("created_at", since)
+      .range(from, to),
+  );
 
   const buckets = new Map<string, { all: number; paid: number; rev: number }>();
   for (let i = 0; i < days; i++) {
     const d = new Date(Date.now() - i * 86400_000).toISOString().slice(0, 10);
     buckets.set(d, { all: 0, paid: 0, rev: 0 });
   }
-  for (const o of orders ?? []) {
+  for (const o of orders) {
     const d = (o.created_at as string).slice(0, 10);
     const b = buckets.get(d);
     if (!b) continue;

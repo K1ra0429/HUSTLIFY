@@ -4,6 +4,8 @@ import { LogOut } from 'lucide-react';
 import { adminApi } from '@/lib/adminApi';
 import CasesTab from './CasesTab';
 import ProductsTab from './ProductsTab';
+import CategoriesTab from './CategoriesTab';
+import ProjectsTab from './ProjectsTab';
 import ReviewsTab from './ReviewsTab';
 import SettingsTab from './SettingsTab';
 
@@ -28,12 +30,16 @@ const AdminDashboard = ({ onLogout }: { onLogout: () => void }) => {
           <TabsList>
             <TabsTrigger value="cases">Кейсы</TabsTrigger>
             <TabsTrigger value="products">Товары</TabsTrigger>
+            <TabsTrigger value="categories">Категории</TabsTrigger>
+            <TabsTrigger value="projects">Проекты</TabsTrigger>
             <TabsTrigger value="reviews">Отзывы</TabsTrigger>
             <TabsTrigger value="settings">Настройки</TabsTrigger>
           </TabsList>
           <div className="mt-4">
             <TabsContent value="cases"><CasesTab /></TabsContent>
             <TabsContent value="products"><ProductsTab /></TabsContent>
+            <TabsContent value="categories"><CategoriesTab /></TabsContent>
+            <TabsContent value="projects"><ProjectsTab /></TabsContent>
             <TabsContent value="reviews"><ReviewsTab /></TabsContent>
             <TabsContent value="settings"><SettingsTab /></TabsContent>
           </div>

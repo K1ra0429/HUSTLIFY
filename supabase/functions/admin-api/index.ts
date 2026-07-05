@@ -120,6 +120,51 @@ serve(async (req) => {
         return jsonRes({ ok: true });
       }
 
+      // ===== CATEGORIES =====
+      case "categories.list": {
+        const { data, error } = await supabase.from("categories").select("*").order("sort_order");
+        if (error) throw error;
+        return jsonRes({ data });
+      }
+      case "categories.upsert": {
+        const { row } = body;
+        if (!row) return jsonRes({ error: "row required" }, 400);
+        if (!row.id) return jsonRes({ error: "id (slug) required" }, 400);
+        const { data, error } = await supabase.from("categories").upsert(row).select().maybeSingle();
+        if (error) throw error;
+        return jsonRes({ data });
+      }
+      case "categories.delete": {
+        const { id } = body;
+        if (!id) return jsonRes({ error: "id required" }, 400);
+        const { error } = await supabase.from("categories").delete().eq("id", id);
+        if (error) throw error;
+        return jsonRes({ ok: true });
+      }
+
+      // ===== PROJECTS =====
+      case "projects.list": {
+        const { data, error } = await supabase.from("projects").select("*").order("sort_order");
+        if (error) throw error;
+        return jsonRes({ data });
+      }
+      case "projects.upsert": {
+        const { row } = body;
+        if (!row) return jsonRes({ error: "row required" }, 400);
+        if (!row.id) return jsonRes({ error: "id (slug) required" }, 400);
+        const payload = { ...row, updated_at: new Date().toISOString() };
+        const { data, error } = await supabase.from("projects").upsert(payload).select().maybeSingle();
+        if (error) throw error;
+        return jsonRes({ data });
+      }
+      case "projects.delete": {
+        const { id } = body;
+        if (!id) return jsonRes({ error: "id required" }, 400);
+        const { error } = await supabase.from("projects").delete().eq("id", id);
+        if (error) throw error;
+        return jsonRes({ ok: true });
+      }
+
       // ===== PRODUCTS =====
       case "products.list": {
         const { data, error } = await supabase.from("products").select("*").order("sort_order");

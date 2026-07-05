@@ -44,6 +44,16 @@ export const adminApi = {
     upsert: (row: any) => call<{ data: any }>('cases.upsert', { row }).then((r) => r.data),
     remove: (id: string) => call('cases.delete', { id }),
   },
+  categories: {
+    list: () => call<{ data: any[] }>('categories.list').then((r) => r.data),
+    upsert: (row: any) => call<{ data: any }>('categories.upsert', { row }).then((r) => r.data),
+    remove: (id: string) => call('categories.delete', { id }),
+  },
+  projects: {
+    list: () => call<{ data: any[] }>('projects.list').then((r) => r.data),
+    upsert: (row: any) => call<{ data: any }>('projects.upsert', { row }).then((r) => r.data),
+    remove: (id: string) => call('projects.delete', { id }),
+  },
   products: {
     list: () => call<{ data: any[] }>('products.list').then((r) => r.data),
     upsert: (row: any) => call<{ data: any }>('products.upsert', { row }).then((r) => r.data),

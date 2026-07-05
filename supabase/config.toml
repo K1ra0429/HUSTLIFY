@@ -29,3 +29,15 @@ verify_jwt = false
 
 [functions.notify-pending-fulfillments]
 verify_jwt = false
+
+[functions.admin-api]
+verify_jwt = false
+
+[functions.create-sbp-order]
+verify_jwt = false
+
+[functions.spin-wheel]
+verify_jwt = false
+
+[functions.submit-sbp-receipt]
+verify_jwt = false

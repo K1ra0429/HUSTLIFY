@@ -18,6 +18,8 @@ const emptyProduct = {
   stock: 0,
   image: '',
   guarantee: '',
+  category_id: null as string | null,
+  project_id: null as string | null,
   is_active: true,
   is_featured: false,
   is_popular: false,
@@ -26,9 +28,12 @@ const emptyProduct = {
 };
 
 type ProductRow = typeof emptyProduct;
+type RefRow = { id: string; name?: string; title?: string };
 
 const ProductsTab = () => {
   const [products, setProducts] = useState<ProductRow[]>([]);
+  const [categories, setCategories] = useState<RefRow[]>([]);
+  const [projects, setProjects] = useState<RefRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<ProductRow | null>(null);
   const [saving, setSaving] = useState(false);
@@ -36,7 +41,14 @@ const ProductsTab = () => {
   const load = async () => {
     setLoading(true);
     try {
-      setProducts(await adminApi.products.list());
+      const [prods, cats, projs] = await Promise.all([
+        adminApi.products.list(),
+        adminApi.categories.list(),
+        adminApi.projects.list(),
+      ]);
+      setProducts(prods);
+      setCategories(cats);
+      setProjects(projs);
     } catch (e: any) {
       toast({ title: 'Не удалось загрузить товары', description: e?.message, variant: 'destructive' });
     } finally {
@@ -98,7 +110,11 @@ const ProductsTab = () => {
                 <span className="font-semibold text-sm truncate">{p.title}</span>
                 {!p.is_active && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">скрыт</span>}
               </div>
-              <div className="text-xs text-muted-foreground truncate">{p.price} ₽ · остаток {p.stock}</div>
+              <div className="text-xs text-muted-foreground truncate">
+                ${p.price} · остаток {p.stock}
+                {p.category_id ? ` · ${categories.find((c) => c.id === p.category_id)?.name ?? p.category_id}` : ''}
+                {p.project_id ? ` · ${projects.find((pr) => pr.id === p.project_id)?.title ?? p.project_id}` : ''}
+              </div>
             </div>
             <Button size="icon" variant="ghost" onClick={() => setEditing(p)}><Pencil className="w-4 h-4" /></Button>
             <Button size="icon" variant="ghost" onClick={() => p.id && remove(p.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
@@ -116,14 +132,37 @@ const ProductsTab = () => {
               <Field label="Подзаголовок"><Input value={editing.subtitle} onChange={(e) => setEditing({ ...editing, subtitle: e.target.value })} /></Field>
               <Field label="Описание"><Textarea rows={4} value={editing.description} onChange={(e) => setEditing({ ...editing, description: e.target.value })} /></Field>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Цена, ₽"><Input type="number" value={editing.price} onChange={(e) => setEditing({ ...editing, price: Number(e.target.value) })} /></Field>
-                <Field label="Старая цена, ₽"><Input type="number" value={editing.old_price ?? ''} onChange={(e) => setEditing({ ...editing, old_price: e.target.value === '' ? null : Number(e.target.value) })} /></Field>
+                <Field label="Цена, $"><Input type="number" step="0.01" value={editing.price} onChange={(e) => setEditing({ ...editing, price: Number(e.target.value) })} /></Field>
+                <Field label="Старая цена, $"><Input type="number" step="0.01" value={editing.old_price ?? ''} onChange={(e) => setEditing({ ...editing, old_price: e.target.value === '' ? null : Number(e.target.value) })} /></Field>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Остаток"><Input type="number" value={editing.stock} onChange={(e) => setEditing({ ...editing, stock: Number(e.target.value) })} /></Field>
                 <Field label="Гарантия"><Input value={editing.guarantee} onChange={(e) => setEditing({ ...editing, guarantee: e.target.value })} /></Field>
               </div>
               <Field label="Картинка (URL)"><Input value={editing.image ?? ''} onChange={(e) => setEditing({ ...editing, image: e.target.value })} placeholder="https://..." /></Field>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Категория">
+                  <select
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    value={editing.category_id ?? ''}
+                    onChange={(e) => setEditing({ ...editing, category_id: e.target.value || null })}
+                  >
+                    <option value="">— без категории —</option>
+                    {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </Field>
+                <Field label="Проект">
+                  <select
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    value={editing.project_id ?? ''}
+                    onChange={(e) => setEditing({ ...editing, project_id: e.target.value || null })}
+                  >
+                    <option value="">— без проекта —</option>
+                    {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+                  </select>
+                </Field>
+              </div>
 
               {([
                 ['is_active', 'Показывать на сайте'],
