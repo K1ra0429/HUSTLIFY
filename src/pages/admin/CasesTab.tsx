@@ -1,0 +1,260 @@
+import { useEffect, useState } from 'react';
+import { Loader2, Plus, Trash2, Pencil, GripVertical } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
+import { toast } from '@/hooks/use-toast';
+import { adminApi } from '@/lib/adminApi';
+
+const emptyCase = {
+  id: undefined as string | undefined,
+  slug: '',
+  title: '',
+  short_description: '',
+  full_description: '',
+  price: 0,
+  old_price: null as number | null,
+  image_url: '',
+  badge_type: 'none' as 'none' | 'hit' | 'custom',
+  badge_text: '',
+  spots_left: null as number | null,
+  highlight_enabled: false,
+  highlight_color: '#ffffff',
+  background_color: '',
+  cta_text: 'Подробнее',
+  support_username: '',
+  external_link: '',
+  is_active: true,
+  sort_order: 0,
+};
+
+type CaseRow = typeof emptyCase;
+
+const CasesTab = () => {
+  const [cases, setCases] = useState<CaseRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<CaseRow | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await adminApi.cases.list();
+      setCases(data);
+    } catch (e: any) {
+      toast({ title: 'Не удалось загрузить кейсы', description: e?.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const save = async () => {
+    if (!editing) return;
+    if (!editing.slug.trim() || !editing.title.trim()) {
+      toast({ title: 'Заполните хотя бы slug и заголовок', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    try {
+      await adminApi.cases.upsert(editing);
+      toast({ title: 'Кейс сохранён' });
+      setEditing(null);
+      load();
+    } catch (e: any) {
+      toast({ title: 'Ошибка сохранения', description: e?.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm('Удалить кейс безвозвратно?')) return;
+    try {
+      await adminApi.cases.remove(id);
+      toast({ title: 'Кейс удалён' });
+      load();
+    } catch (e: any) {
+      toast({ title: 'Ошибка удаления', description: e?.message, variant: 'destructive' });
+    }
+  };
+
+  if (loading) {
+    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin" /></div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <p className="text-sm text-muted-foreground">Карточки в разделе «Наши кейсы» на главной</p>
+        <Button size="sm" onClick={() => setEditing({ ...emptyCase, sort_order: cases.length })}>
+          <Plus className="w-4 h-4" /> Новый кейс
+        </Button>
+      </div>
+
+      <div className="space-y-2">
+        {cases.map((c) => (
+          <div key={c.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+            <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+            <div className="w-12 h-12 rounded-lg bg-black overflow-hidden shrink-0">
+              {c.image_url && <img src={c.image_url} alt="" className="w-full h-full object-cover" />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-sm truncate">{c.title}</span>
+                {!c.is_active && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">скрыт</span>}
+                {c.highlight_enabled && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-500">подсветка</span>}
+              </div>
+              <div className="text-xs text-muted-foreground truncate">{c.slug} · {c.price} ₽</div>
+            </div>
+            <Button size="icon" variant="ghost" onClick={() => setEditing(c)}><Pencil className="w-4 h-4" /></Button>
+            <Button size="icon" variant="ghost" onClick={() => c.id && remove(c.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+          </div>
+        ))}
+        {cases.length === 0 && (
+          <div className="text-sm text-muted-foreground text-center py-8">Пока нет ни одного кейса</div>
+        )}
+      </div>
+
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{editing?.id ? 'Редактировать кейс' : 'Новый кейс'}</DialogTitle></DialogHeader>
+          {editing && (
+            <div className="space-y-4">
+              <Field label="Slug (латиницей, для ссылок ?case=)">
+                <Input value={editing.slug} onChange={(e) => setEditing({ ...editing, slug: e.target.value })} placeholder="business" />
+              </Field>
+              <Field label="Заголовок">
+                <Input value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
+              </Field>
+              <Field label="Короткое описание (на карточке)">
+                <Textarea rows={2} value={editing.short_description} onChange={(e) => setEditing({ ...editing, short_description: e.target.value })} />
+              </Field>
+              <Field label="Полное описание (в попапе)">
+                <Textarea rows={5} value={editing.full_description} onChange={(e) => setEditing({ ...editing, full_description: e.target.value })} />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Цена, ₽">
+                  <Input type="number" value={editing.price} onChange={(e) => setEditing({ ...editing, price: Number(e.target.value) })} />
+                </Field>
+                <Field label="Старая цена, ₽">
+                  <Input type="number" value={editing.old_price ?? ''} onChange={(e) => setEditing({ ...editing, old_price: e.target.value === '' ? null : Number(e.target.value) })} />
+                </Field>
+              </div>
+              <Field label="Картинка (URL)">
+                <Input value={editing.image_url ?? ''} onChange={(e) => setEditing({ ...editing, image_url: e.target.value })} placeholder="https://..." />
+              </Field>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Бейдж">
+                  <select
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    value={editing.badge_type}
+                    onChange={(e) => setEditing({ ...editing, badge_type: e.target.value as any })}
+                  >
+                    <option value="none">Нет</option>
+                    <option value="hit">Хит продаж (огонёк)</option>
+                    <option value="custom">Свой текст</option>
+                  </select>
+                </Field>
+                <Field label="Текст бейджа">
+                  <Input
+                    disabled={editing.badge_type === 'none'}
+                    value={editing.badge_text}
+                    onChange={(e) => setEditing({ ...editing, badge_text: e.target.value })}
+                    placeholder="Коллаборация"
+                  />
+                </Field>
+              </div>
+
+              <Field label="«Осталось N мест» (пусто — скрыть)">
+                <Input
+                  type="number"
+                  value={editing.spots_left ?? ''}
+                  onChange={(e) => setEditing({ ...editing, spots_left: e.target.value === '' ? null : Number(e.target.value) })}
+                />
+              </Field>
+
+              <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                <div>
+                  <div className="text-sm font-medium">Неоновая подсветка карточки</div>
+                  <div className="text-xs text-muted-foreground">Свечение по контуру, как у акционных карточек</div>
+                </div>
+                <Switch checked={editing.highlight_enabled} onCheckedChange={(v) => setEditing({ ...editing, highlight_enabled: v })} />
+              </div>
+
+              {editing.highlight_enabled && (
+                <Field label="Цвет подсветки">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={editing.highlight_color}
+                      onChange={(e) => setEditing({ ...editing, highlight_color: e.target.value })}
+                      className="w-10 h-10 rounded border border-input cursor-pointer bg-transparent"
+                    />
+                    <Input value={editing.highlight_color} onChange={(e) => setEditing({ ...editing, highlight_color: e.target.value })} />
+                  </div>
+                </Field>
+              )}
+
+              <Field label="Цвет фона карточки (пусто — как у остальных)">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={editing.background_color || '#111111'}
+                    onChange={(e) => setEditing({ ...editing, background_color: e.target.value })}
+                    className="w-10 h-10 rounded border border-input cursor-pointer bg-transparent"
+                  />
+                  <Input
+                    value={editing.background_color ?? ''}
+                    onChange={(e) => setEditing({ ...editing, background_color: e.target.value })}
+                    placeholder="оставьте пустым для темы по умолчанию"
+                  />
+                </div>
+              </Field>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Текст кнопки">
+                  <Input value={editing.cta_text} onChange={(e) => setEditing({ ...editing, cta_text: e.target.value })} />
+                </Field>
+                <Field label="Telegram для заявок (без @, пусто — общая поддержка)">
+                  <Input value={editing.support_username ?? ''} onChange={(e) => setEditing({ ...editing, support_username: e.target.value })} placeholder="HustlifyHelp" />
+                </Field>
+              </div>
+
+              <Field label="Внешняя ссылка вместо Telegram-сообщения (необязательно)">
+                <Input value={editing.external_link ?? ''} onChange={(e) => setEditing({ ...editing, external_link: e.target.value })} placeholder="https://..." />
+              </Field>
+
+              <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                <div className="text-sm font-medium">Показывать на сайте</div>
+                <Switch checked={editing.is_active} onCheckedChange={(v) => setEditing({ ...editing, is_active: v })} />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditing(null)}>Отмена</Button>
+            <Button onClick={save} disabled={saving}>
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+              Сохранить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div>
+    <label className="text-xs text-muted-foreground mb-1.5 block">{label}</label>
+    {children}
+  </div>
+);
+
+export default CasesTab;
