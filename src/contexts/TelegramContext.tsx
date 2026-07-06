@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TelegramUser {
   id: number;
@@ -33,6 +34,7 @@ export const TelegramProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [webApp, setWebApp] = useState<TelegramWebApp | null>(null);
   const [user, setUser] = useState<TelegramUser | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const profileEnsuredFor = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,6 +90,22 @@ export const TelegramProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (timer) window.clearTimeout(timer);
     };
   }, []);
+
+  // Ensure the user gets a row in user_profiles as soon as the Mini App opens
+  // with valid Telegram auth data — not only when they later visit Account or
+  // Checkout. Fire-and-forget; server-side upsert is idempotent.
+  useEffect(() => {
+    const initData = webApp?.initData;
+    if (!initData || profileEnsuredFor.current === initData) return;
+    profileEnsuredFor.current = initData;
+    supabase.functions
+      .invoke('get-my-data', { body: { initData, action: 'profile' } })
+      .catch(() => {
+        // Non-fatal: if this fails, profile will still be created on next
+        // visit to Account/Checkout. Don't block the UI on it.
+        profileEnsuredFor.current = null;
+      });
+  }, [webApp?.initData]);
 
   const haptic = {
     impact: useCallback((style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft' = 'medium') => {

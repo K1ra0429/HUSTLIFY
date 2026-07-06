@@ -16,6 +16,11 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+async function sha256Hex(text: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -82,9 +87,23 @@ serve(async (req) => {
 
     // ---- Login (no auth required) ----
     if (action === "login") {
-      const password = Deno.env.get("ADMIN_PASSWORD");
-      if (!password) return jsonRes({ error: "ADMIN_PASSWORD не настроен на сервере" }, 500);
-      if (body.password !== password) return jsonRes({ error: "Неверный пароль" }, 401);
+      const ownerPassword = Deno.env.get("ADMIN_PASSWORD");
+      const submitted = String(body.password ?? "");
+      let authenticated = !!ownerPassword && submitted === ownerPassword;
+
+      if (!authenticated && submitted) {
+        const hash = await sha256Hex(submitted);
+        const { data: mod } = await supabase
+          .from("moderators")
+          .select("telegram_id, is_active")
+          .eq("password_hash", hash)
+          .eq("is_active", true)
+          .maybeSingle();
+        if (mod) authenticated = true;
+      }
+
+      if (!ownerPassword) return jsonRes({ error: "ADMIN_PASSWORD не настроен на сервере" }, 500);
+      if (!authenticated) return jsonRes({ error: "Неверный пароль" }, 401);
       try {
         return jsonRes({ token: makeToken() });
       } catch {

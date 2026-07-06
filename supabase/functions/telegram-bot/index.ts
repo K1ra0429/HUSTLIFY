@@ -57,6 +57,10 @@ import {
   startEditAutoProduct, applyEditAutoProduct,
   startNewPremiumTerm, handleNewPremiumTermStep, deletePremiumTerm,
 } from "./admin/auto_products.ts";
+import {
+  showModeratorsMenu, showModerator, toggleModerator, removeModerator,
+  startAddModerator, resetModeratorPassword, handleModeratorText,
+} from "./admin/moderators.ts";
 
 const TELEGRAM_WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
 const WEBAPP_URL = Deno.env.get("WEBAPP_URL") ?? "";
@@ -350,6 +354,15 @@ async function handleAdminCallback(
       if (op === "rj" && arg) return startRejectSbp(chatId, msgId, arg, fromId);
       return showSbpList(chatId, msgId, "pending", 0);
     }
+    case "mod": {
+      if (!op) return showModeratorsMenu(chatId, msgId);
+      if (op === "n") return startAddModerator(chatId, msgId, fromId);
+      if (op === "v" && arg) return showModerator(chatId, msgId, arg);
+      if (op === "t" && arg) return toggleModerator(chatId, msgId, arg, fromId);
+      if (op === "rp" && arg) return resetModeratorPassword(chatId, msgId, arg, fromId);
+      if (op === "d" && arg) return removeModerator(chatId, msgId, arg, fromId);
+      return showModeratorsMenu(chatId, msgId);
+    }
     default:
       return sendAdminMenu(chatId, fromId, msgId);
   }
@@ -388,6 +401,9 @@ async function handleAdminText(chatId: number, fromId: number, text: string): Pr
   }
   if (scope === "u") {
     return await handleUserText(chatId, fromId, sess.state, text);
+  }
+  if (scope === "mod") {
+    return await handleModeratorText(chatId, fromId, sess.state, text);
   }
   if (scope === "o" && verb === "msg" && a) {
     await applyOrderMessage(chatId, fromId, a, text);

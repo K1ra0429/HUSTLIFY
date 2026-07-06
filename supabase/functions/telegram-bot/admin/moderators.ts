@@ -1,170 +1,166 @@
-// Moderators section: only super-admins (ADMIN_TELEGRAM_IDS) can add/remove
-// moderators. A moderator gets bot admin access + a login/password pair for
-// the separate web admin panel. When the moderator's Telegram account sends
-// /start, index.ts delivers those credentials via DM (see deliverCredentialsIfPending).
-import { deleteAndSend, tg } from "../_shared/tg.ts";
+// Moderators admin: add/remove people who can log into the web admin panel
+// (/admin) with their own password, without sharing the owner's ADMIN_PASSWORD
+// or their Telegram ID in ADMIN_TELEGRAM_IDS.
+import { tg, deleteAndSend } from "../_shared/tg.ts";
 import { supabase, writeAuditLog } from "../_shared/db.ts";
-import { isSuperAdmin, hashPassword } from "../_shared/auth.ts";
 import { setSession, clearSession } from "../_shared/session.ts";
+
+const WEBAPP_URL = Deno.env.get("WEBAPP_URL") ?? "";
 
 function backRow() {
   return [{ text: "← Меню", callback_data: "a:menu" }];
 }
 
-export async function showModeratorsMenu(chatId: number, msgId: number | undefined, fromId: number) {
+async function sha256Hex(text: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function genPassword(len = 12): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(len));
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+}
+
+export async function showModeratorsMenu(chatId: number, msgId?: number) {
   const { data } = await supabase
     .from("moderators")
-    .select("id, telegram_id, login, role, delivered, created_at")
+    .select("telegram_id, username, is_active, created_at")
     .order("created_at", { ascending: false });
 
-  const lines = ["🛡 <b>Модераторы</b>", ""];
-  if (!data || data.length === 0) {
-    lines.push("Пока никого не добавили.");
-  } else {
-    for (const m of data) {
-      const status = m.delivered ? "✅ доставлено" : "⏳ ждём /start от него";
-      lines.push(`• <b>${m.login}</b> (роль: ${m.role}) — tg id ${m.telegram_id} — ${status}`);
-    }
-  }
-
-  const rows: any[] = [];
-  if (isSuperAdmin(fromId)) {
-    rows.push([{ text: "➕ Добавить модератора", callback_data: "a:mod:new" }]);
-    for (const m of data ?? []) {
-      if (m.role !== "superadmin") {
-        rows.push([{ text: `🗑 Удалить ${m.login}`, callback_data: `a:mod:d:${m.id}` }]);
-      }
-    }
-  }
+  const rows = (data ?? []).map((m) => [{
+    text: `${m.is_active ? "🟢" : "🚫"} ${m.username ? "@" + m.username : m.telegram_id}`,
+    callback_data: `a:mod:v:${m.telegram_id}`,
+  }]);
+  rows.push([{ text: "➕ Добавить модератора по ID", callback_data: "a:mod:n" }]);
   rows.push(backRow());
 
   await deleteAndSend(chatId, msgId, {
-    text: lines.join("\n"),
+    text: "🛡 <b>Модераторы</b>\n\nЭти люди могут заходить в веб-админку (/admin) со своим паролем.\nНа доступ к этому меню бота они не влияют.",
     parse_mode: "HTML",
     reply_markup: { inline_keyboard: rows },
   });
 }
 
-export async function startAddModerator(chatId: number, msgId: number | undefined, fromId: number) {
-  if (!isSuperAdmin(fromId)) return;
-  await setSession(fromId, "mod:new:id");
+export async function showModerator(chatId: number, msgId: number | undefined, telegramIdStr: string) {
+  const tid = Number(telegramIdStr);
+  const { data: m } = await supabase.from("moderators").select("*").eq("telegram_id", tid).maybeSingle();
+  if (!m) return showModeratorsMenu(chatId, msgId);
+  const text = [
+    `🛡 <b>Модератор</b>`,
+    `ID: <code>${m.telegram_id}</code>`,
+    m.username ? `@${m.username}` : "",
+    `Статус: ${m.is_active ? "🟢 активен" : "🚫 отключен"}`,
+    `Добавлен: ${new Date(m.created_at).toLocaleString("ru-RU")}`,
+  ].filter(Boolean).join("\n");
   await deleteAndSend(chatId, msgId, {
-    text: "🛡 <b>Новый модератор</b>\n\nШаг 1/3. Пришлите Telegram ID человека (число).\nУзнать свой ID можно, например, у бота @userinfobot.",
+    text,
     parse_mode: "HTML",
-    reply_markup: { inline_keyboard: [backRow()] },
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: m.is_active ? "🚫 Отключить доступ" : "🟢 Включить доступ", callback_data: `a:mod:t:${tid}` }],
+        [{ text: "🔄 Выдать новый пароль", callback_data: `a:mod:rp:${tid}` }],
+        [{ text: "🗑 Удалить", callback_data: `a:mod:d:${tid}` }],
+        [{ text: "← К списку", callback_data: "a:mod" }],
+      ],
+    },
   });
 }
 
-// Called from index.ts's handleAdminText while the user's session state
-// starts with "mod:new". Returns true once it has consumed the message.
-export async function handleAddModeratorStep(
-  chatId: number,
-  fromId: number,
-  state: string,
-  payload: Record<string, unknown>,
-  text: string,
-): Promise<void> {
-  const step = state.split(":")[2]; // id | login | password
-
-  if (step === "id") {
-    const id = Number(text.trim());
-    if (!id || !Number.isFinite(id)) {
-      await tg("sendMessage", { chat_id: chatId, text: "❌ Это не похоже на Telegram ID. Пришлите число." });
-      return;
-    }
-    await setSession(fromId, "mod:new:login", { telegram_id: id });
-    await tg("sendMessage", {
-      chat_id: chatId,
-      text: "Шаг 2/3. Придумайте логин для входа на сайт (латиница/цифры, без пробелов).",
-    });
-    return;
-  }
-
-  if (step === "login") {
-    const login = text.trim();
-    if (login.length < 3 || /\s/.test(login)) {
-      await tg("sendMessage", { chat_id: chatId, text: "❌ Логин должен быть от 3 символов и без пробелов. Попробуйте ещё раз." });
-      return;
-    }
-    const { data: taken } = await supabase.from("moderators").select("id").eq("login", login).maybeSingle();
-    if (taken) {
-      await tg("sendMessage", { chat_id: chatId, text: "❌ Такой логин уже занят, придумайте другой." });
-      return;
-    }
-    await setSession(fromId, "mod:new:password", { ...payload, login });
-    await tg("sendMessage", { chat_id: chatId, text: "Шаг 3/3. Придумайте пароль (минимум 4 символа)." });
-    return;
-  }
-
-  if (step === "password") {
-    const password = text.trim();
-    if (password.length < 4) {
-      await tg("sendMessage", { chat_id: chatId, text: "❌ Пароль слишком короткий, минимум 4 символа." });
-      return;
-    }
-    const telegramId = Number(payload.telegram_id);
-    const login = String(payload.login);
-    const password_hash = await hashPassword(password);
-
-    const { error } = await supabase.from("moderators").insert({
-      telegram_id: telegramId,
-      login,
-      password_hash,
-      pending_password: password,
-      role: "moderator",
-      added_by: fromId,
-      delivered: false,
-    });
-
-    await clearSession(fromId);
-
-    if (error) {
-      await tg("sendMessage", { chat_id: chatId, text: `❌ Не удалось сохранить: ${error.message}` });
-      return;
-    }
-
-    await writeAuditLog(fromId, "moderator.add", login, { telegram_id: telegramId });
-
-    await tg("sendMessage", {
-      chat_id: chatId,
-      text:
-        `✅ Модератор добавлен.\n\n` +
-        `Логин: <b>${login}</b>\nПароль: <b>${password}</b>\n\n` +
-        `Как только этот человек нажмёт /start в этом боте, он автоматически получит эти данные для входа на сайт-админку.`,
-      parse_mode: "HTML",
-    });
-  }
+export async function toggleModerator(chatId: number, msgId: number | undefined, telegramIdStr: string, adminId: number) {
+  const tid = Number(telegramIdStr);
+  const { data: m } = await supabase.from("moderators").select("is_active").eq("telegram_id", tid).maybeSingle();
+  if (!m) return showModeratorsMenu(chatId, msgId);
+  await supabase.from("moderators").update({ is_active: !m.is_active }).eq("telegram_id", tid);
+  await writeAuditLog(adminId, "moderator.toggle", String(tid), { is_active: !m.is_active });
+  return showModerator(chatId, msgId, telegramIdStr);
 }
 
-export async function deleteModerator(chatId: number, msgId: number | undefined, fromId: number, id: string) {
-  if (!isSuperAdmin(fromId)) return;
-  const { data: mod } = await supabase.from("moderators").select("login").eq("id", id).maybeSingle();
-  await supabase.from("moderators").delete().eq("id", id);
-  await writeAuditLog(fromId, "moderator.delete", mod?.login ?? id, {});
-  await showModeratorsMenu(chatId, msgId, fromId);
+export async function removeModerator(chatId: number, msgId: number | undefined, telegramIdStr: string, adminId: number) {
+  const tid = Number(telegramIdStr);
+  await supabase.from("moderators").delete().eq("telegram_id", tid);
+  await writeAuditLog(adminId, "moderator.remove", String(tid), {});
+  return showModeratorsMenu(chatId, msgId);
 }
 
-// Called on every /start. If this Telegram account is a moderator whose
-// credentials haven't been delivered yet, DM them the login/password once.
-export async function deliverCredentialsIfPending(chatId: number, telegramId: number) {
-  const { data } = await supabase
-    .from("moderators")
-    .select("id, login, pending_password, delivered")
-    .eq("telegram_id", telegramId)
-    .eq("delivered", false)
-    .maybeSingle();
-  if (!data) return;
-
-  await tg("sendMessage", {
-    chat_id: chatId,
-    text:
-      `🛡 Вам выдан доступ модератора.\n\n` +
-      `Данные для входа в веб-админку:\n` +
-      `Логин: <b>${data.login}</b>\n` +
-      `Пароль: <b>${data.pending_password ?? "—"}</b>\n\n` +
-      `Сохраните их — повторно бот пароль не пришлёт. В самом боте вам теперь доступна команда /admin.`,
+export async function startAddModerator(chatId: number, msgId: number | undefined, adminId: number) {
+  await setSession(adminId, "mod:add", {});
+  await deleteAndSend(chatId, msgId, {
+    text: "➕ Пришлите <b>Telegram ID</b> человека, которого хотите сделать модератором.\n\nУзнать свой ID можно, написав боту @userinfobot.",
     parse_mode: "HTML",
+    reply_markup: { inline_keyboard: [[{ text: "Отмена", callback_data: "a:mod" }]] },
   });
-  // Wipe the plaintext copy now that it's been delivered — only the hash remains.
-  await supabase.from("moderators").update({ delivered: true, pending_password: null }).eq("id", data.id);
+}
+
+async function issuePasswordAndNotify(chatId: number, adminId: number, targetId: number, isReset: boolean) {
+  const password = genPassword();
+  const password_hash = await sha256Hex(password);
+
+  // Try to grab a username for display purposes (best-effort; not required).
+  let username: string | null = null;
+  try {
+    const { data: u } = await supabase.from("user_profiles").select("username").eq("telegram_id", targetId).maybeSingle();
+    username = u?.username ?? null;
+  } catch { /* ignore */ }
+
+  const { error } = await supabase.from("moderators").upsert(
+    { telegram_id: targetId, username, password_hash, is_active: true, added_by: adminId },
+    { onConflict: "telegram_id" },
+  );
+
+  if (error) {
+    await deleteAndSend(chatId, undefined, { text: `❌ Ошибка: ${error.message}` });
+    return;
+  }
+
+  const adminUrl = WEBAPP_URL ? `${WEBAPP_URL.replace(/\/$/, "")}/admin` : "ссылку на админку уточните у владельца бота";
+  const dmText = [
+    isReset ? "🔑 <b>Ваш пароль от админ-панели обновлён</b>" : "🛡 <b>Вы назначены модератором Hustlify</b>",
+    "",
+    `Ссылка: ${adminUrl}`,
+    `Пароль: <code>${password}</code>`,
+    "",
+    "Никому не сообщайте этот пароль.",
+  ].join("\n");
+
+  let delivered = true;
+  try {
+    await tg("sendMessage", { chat_id: targetId, text: dmText, parse_mode: "HTML" });
+  } catch {
+    delivered = false;
+  }
+
+  await writeAuditLog(adminId, isReset ? "moderator.reset_password" : "moderator.add", String(targetId), {});
+
+  await deleteAndSend(chatId, undefined, {
+    text: delivered
+      ? `✅ Готово. Пользователю <code>${targetId}</code> отправлен пароль от админки в личные сообщения.`
+      : `⚠️ Модератор сохранён, но написать ему в Telegram не удалось (он мог не запускать бота). Пароль: <code>${password}</code> — придётся передать вручную.`,
+    parse_mode: "HTML",
+    reply_markup: { inline_keyboard: [[{ text: "← К модераторам", callback_data: "a:mod" }]] },
+  });
+}
+
+export async function applyAddModerator(chatId: number, adminId: number, raw: string) {
+  await clearSession(adminId);
+  const idStr = raw.trim();
+  if (!/^\d{5,}$/.test(idStr)) {
+    await deleteAndSend(chatId, undefined, {
+      text: "❌ Это не похоже на Telegram ID. Пришлите просто число, например 5119044165.",
+      reply_markup: { inline_keyboard: [[{ text: "← Назад", callback_data: "a:mod" }]] },
+    });
+    return;
+  }
+  await issuePasswordAndNotify(chatId, adminId, Number(idStr), false);
+}
+
+export async function resetModeratorPassword(chatId: number, msgId: number | undefined, telegramIdStr: string, adminId: number) {
+  await issuePasswordAndNotify(chatId, adminId, Number(telegramIdStr), true);
+}
+
+// FSM dispatch helper for mod:* states (called from index.ts handleAdminText).
+export async function handleModeratorText(chatId: number, adminId: number, sessState: string, text: string): Promise<boolean> {
+  if (sessState !== "mod:add") return false;
+  await applyAddModerator(chatId, adminId, text);
+  return true;
 }
