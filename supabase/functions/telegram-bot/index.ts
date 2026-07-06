@@ -1,7 +1,7 @@
 // Telegram bot: /start, /rep, /admin command + callback router
 import { tg, deleteAndSend, answerCallback, maskToken } from "./_shared/tg.ts";
 import { supabase, getSetting, writeAuditLog } from "./_shared/db.ts";
-import { isAdmin } from "./_shared/auth.ts";
+import { isAdmin, isAdminOrModerator } from "./_shared/auth.ts";
 import { getSession, clearSession } from "./_shared/session.ts";
 import { sendAdminMenu, notImplementedStub } from "./admin/menu.ts";
 import {
@@ -172,7 +172,7 @@ async function handleAdminCallback(
   callbackId: string,
   data: string,
 ) {
-  if (!isAdmin(fromId)) {
+  if (!(await isAdminOrModerator(fromId))) {
     await answerCallback(callbackId, "⛔ Только для администраторов", true);
     return;
   }
@@ -370,7 +370,7 @@ async function handleAdminCallback(
 
 // Route plain-text input by admin FSM state (`<scope>:<verb>:...`).
 async function handleAdminText(chatId: number, fromId: number, text: string): Promise<boolean> {
-  if (!isAdmin(fromId)) return false;
+  if (!(await isAdminOrModerator(fromId))) return false;
   const sess = await getSession(fromId);
   if (!sess) return false;
   if (text.startsWith("/")) {
@@ -521,7 +521,7 @@ Deno.serve(async (req) => {
 
     if (chatId && fromId) {
       // Photo upload during product image/gallery edit or broadcast wizard
-      if (photos?.length && isAdmin(fromId)) {
+      if (photos?.length && (await isAdminOrModerator(fromId))) {
         const sess = await getSession(fromId);
         if (sess) {
           const [scope, verb, a, b] = sess.state.split(":");
@@ -565,7 +565,7 @@ Deno.serve(async (req) => {
           await handleRep(chatId, fromId, text.replace(/^\/rep\s*/, ""));
         }
       } else if (text === "/admin" || text.startsWith("/admin ")) {
-        if (!isAdmin(fromId)) {
+        if (!(await isAdminOrModerator(fromId))) {
           await tg("sendMessage", { chat_id: chatId, text: "⛔ Команда доступна только администраторам." });
         } else {
           await sendAdminMenu(chatId, fromId);
