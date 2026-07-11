@@ -238,13 +238,14 @@ const Wheel = () => {
           className="absolute inset-0 w-full h-full focus:outline-none disabled:cursor-not-allowed"
           aria-label="Крутить колесо"
         >
-          <motion.svg
-            viewBox="0 0 320 320"
+          <motion.div
             className="w-full h-full drop-shadow-[0_12px_30px_rgba(0,0,0,0.7)]"
+            style={{ transformOrigin: '50% 50%', willChange: 'transform' }}
             animate={{ rotate: rotation }}
             transition={{ duration: 5, ease: [0.16, 1, 0.3, 1] }}
             onAnimationComplete={finalizeSpin}
           >
+          <svg viewBox="0 0 320 320" className="w-full h-full">
             <defs>
               {/* Chrome ring gradient — light at top, dark at bottom with mid highlight */}
               <linearGradient id="chromeRing" x1="0" y1="0" x2="0" y2="1">
@@ -358,7 +359,8 @@ const Wheel = () => {
             <circle cx={cx} cy={cy} r={26} fill="#0a0a0a" />
             <circle cx={cx} cy={cy} r={26} fill="none" stroke="#3f3f46" strokeWidth="1" />
 
-          </motion.svg>
+          </svg>
+          </motion.div>
         </button>
 
         {/* Static logo overlay — sits above the spinning wheel and never rotates */}

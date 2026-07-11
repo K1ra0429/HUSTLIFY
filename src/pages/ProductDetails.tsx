@@ -3,6 +3,7 @@ import { Zap, Clock, Shield, ShoppingCart, CheckCircle2, ChevronRight, ArrowLeft
 import { Button } from '@/components/ui/button';
 import ProductCard from '@/components/ProductCard';
 import ProductCardSkeleton from '@/components/ProductCardSkeleton';
+import { isSpecialProduct } from '@/components/SpecialProductCards';
 import { useProduct, useProducts } from '@/hooks/useProducts';
 import { useStore } from '@/contexts/StoreContext';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -42,7 +43,7 @@ const ProductDetails = () => {
     );
   }
 
-  if (error || !product) {
+  if (error || !product || isSpecialProduct(product)) {
     return (
       <div className="container-main mx-auto px-4 py-20 text-center">
         <div className="text-5xl mb-4">😕</div>
@@ -54,7 +55,7 @@ const ProductDetails = () => {
   }
 
   const discount = product.old_price ? Math.round((1 - Number(product.price) / Number(product.old_price)) * 100) : 0;
-  const similar = allProducts?.filter(p => p.category_id === product.category_id && p.id !== product.id).slice(0, 4) || [];
+  const similar = allProducts?.filter(p => p.category_id === product.category_id && p.id !== product.id && !isSpecialProduct(p)).slice(0, 4) || [];
   const outOfStock = product.stock <= 0;
 
   return (

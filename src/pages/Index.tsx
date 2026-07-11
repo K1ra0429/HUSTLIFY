@@ -57,7 +57,7 @@ const Index = () => {
               transition={{ delay: 0.15 }}
               className="text-muted-foreground text-base sm:text-lg font-bold uppercase mt-3 max-w-md mx-auto"
             >
-              ДИЗАЙН, МЕРЧ И ЦИФРОВЫЕ ТОВАРЫ — ТРИ ПРОЕКТА В ОДНОМ МЕСТЕ.
+              ОТ ГОЛОЙ ИДЕИ ДО МОНЕТИЗАЦИИ ЗА НЕДЕЛЮ!
             </motion.p>
           </div>
         </div>

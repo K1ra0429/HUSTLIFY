@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useStorefrontPath } from '@/contexts/StorefrontContext';
+import { isSpecialProduct } from '@/components/SpecialProductCards';
 
 interface Props {
   title?: string;
@@ -17,10 +18,15 @@ const ProductShowcase = ({
   const { data: allProducts } = useProducts();
   const buildPath = useStorefrontPath();
 
-  const featured = (allProducts || [])
+  // Telegram Stars / Premium don't have a real product-detail page (they use
+  // their own quantity/recipient card in the full catalog), so they're
+  // excluded from this "pick a card → open detail page" showcase.
+  const eligible = (allProducts || []).filter(p => !isSpecialProduct(p));
+
+  const featured = eligible
     .filter(p => p.is_featured || p.is_popular || p.is_new)
     .slice(0, limit);
-  const showcase = featured.length ? featured : (allProducts || []).slice(0, limit);
+  const showcase = featured.length ? featured : eligible.slice(0, limit);
 
   if (!showcase.length) return null;
 
