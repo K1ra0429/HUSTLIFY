@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useStore } from '@/contexts/StoreContext';
 import ProductCard from '@/components/ProductCard';
 import { useProducts } from '@/hooks/useProducts';
+import { isSpecialProduct } from '@/components/SpecialProductCards';
 import { useTelegram } from '@/contexts/TelegramContext';
 import PriceRub from '@/components/PriceRub';
 
@@ -44,7 +45,7 @@ const Cart = () => {
     : 0;
   const adjustedAfterDiscount = Math.max(0, adjustedTotal - adjustedDiscount);
 
-  const recommended = products?.filter(p => !cart.some(c => c.product.id === p.id)).slice(0, 4) || [];
+  const recommended = products?.filter(p => !cart.some(c => c.product.id === p.id) && !isSpecialProduct(p) && !(p as any).hidden_from_catalog).slice(0, 4) || [];
 
   if (cart.length === 0) {
     return (

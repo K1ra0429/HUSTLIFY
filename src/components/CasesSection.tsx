@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Flame, HelpCircle, X, Sparkles, ShoppingCart, Check } from 'lucide-react';
+import { Flame, HelpCircle, X, Sparkles, ShoppingCart } from 'lucide-react';
 import { Dialog, DialogContent, DialogClose } from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { useSiteSettings } from '@/hooks/useShop';
 import { useCases, type DbCase } from '@/hooks/useCases';
@@ -10,7 +9,20 @@ import { useProducts } from '@/hooks/useProducts';
 import { useStore } from '@/contexts/StoreContext';
 import type { DbProduct } from '@/types/database';
 
-const CaseCard = ({ c, i, onOpen, onAddToCart }: { c: DbCase; i: number; onOpen: () => void; onAddToCart: (e: React.MouseEvent) => void }) => {
+const CaseCard = ({
+  c,
+  i,
+  onOpen,
+  onAddToCart,
+  onAddMiniapp,
+}: {
+  c: DbCase;
+  i: number;
+  onOpen: () => void;
+  onAddToCart: (e: React.MouseEvent) => void;
+  onAddMiniapp: (e: React.MouseEvent) => void;
+}) => {
+  const isMiniappCta = !!c.miniapp_product_id && !!c.cta_text && c.cta_text !== 'Подробнее';
   const highlightStyle = c.highlight_enabled
     ? {
         boxShadow: `0 0 0 1px ${c.highlight_color}e6, 0 0 18px 2px ${c.highlight_color}8c, 0 0 42px 6px ${c.highlight_color}40`,
@@ -72,11 +84,11 @@ const CaseCard = ({ c, i, onOpen, onAddToCart }: { c: DbCase; i: number; onOpen:
             </div>
             <button
               type="button"
-              onClick={onAddToCart}
-              className="mt-auto self-start flex items-center gap-1.5 px-4 py-2 rounded-lg bg-foreground text-background text-xs font-semibold hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              onClick={c.product_id ? (isMiniappCta ? onAddMiniapp : onAddToCart) : onOpen}
+              className="mt-auto self-start flex items-center gap-1 px-2.5 py-1 rounded-md bg-foreground text-background text-[11px] font-bold whitespace-nowrap hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
             >
-              <ShoppingCart className="w-3.5 h-3.5" />
-              {c.product_id ? (c.cta_text && c.cta_text !== 'Подробнее' ? c.cta_text : 'Добавить в корзину') : (c.cta_text || 'Подробнее')}
+              <ShoppingCart className="w-3 h-3 shrink-0" />
+              {c.product_id ? (isMiniappCta ? c.cta_text : 'Добавить') : (c.cta_text || 'Подробнее')}
             </button>
           </div>
         </div>
@@ -87,8 +99,6 @@ const CaseCard = ({ c, i, onOpen, onAddToCart }: { c: DbCase; i: number; onOpen:
 
 const CasesSection = () => {
   const [openCase, setOpenCase] = useState<DbCase | null>(null);
-  const [addFlow, setAddFlow] = useState<DbCase | null>(null);
-  const [wantsMiniapp, setWantsMiniapp] = useState(false);
   const { data: settings } = useSiteSettings();
   const { data: cases } = useCases();
   const { data: allProducts } = useProducts();
@@ -109,35 +119,25 @@ const CasesSection = () => {
     if (ok) toast.success(`«${product.title}» добавлен в корзину`);
   };
 
+  // Base "Добавить" — adds the case's plain product straight to the cart.
   const handleAddToCart = (c: DbCase, e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (!c.product_id) {
-      // Not linked to a real product yet — fall back to the old "see details / message support" flow.
+      // Not linked to a real product yet — fall back to the "see details / message support" flow.
       setOpenCase(c);
       return;
     }
     setOpenCase(null);
-    if (c.miniapp_product_id) {
-      setWantsMiniapp(false);
-      setAddFlow(c);
-    } else {
-      addCaseProductToCart(c, false);
-    }
+    addCaseProductToCart(c, false);
   };
 
-  const confirmAddFlow = () => {
-    if (!addFlow) return;
-    addCaseProductToCart(addFlow, wantsMiniapp);
-    setAddFlow(null);
+  // MiniApp upsell — adds the higher-priced MiniApp product straight to the cart (no Telegram redirect).
+  const handleAddMiniappToCart = (c: DbCase, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!c.miniapp_product_id) return;
+    setOpenCase(null);
+    addCaseProductToCart(c, true);
   };
-
-  const miniappExtraCost = (() => {
-    if (!addFlow) return 0;
-    const base = findProduct(addFlow.product_id);
-    const miniapp = findProduct(addFlow.miniapp_product_id);
-    if (!base || !miniapp) return 0;
-    return Number(miniapp.price) - Number(base.price);
-  })();
 
   useEffect(() => {
     if (!cases || cases.length === 0) return;
@@ -171,12 +171,12 @@ const CasesSection = () => {
       </div>
       <div className="lg:hidden grid grid-cols-2 gap-3 px-4 pt-4 pb-8">
         {cases.map((c, i) => (
-          <CaseCard key={c.id} c={c} i={i} onOpen={() => setOpenCase(c)} onAddToCart={(e) => handleAddToCart(c, e)} />
+          <CaseCard key={c.id} c={c} i={i} onOpen={() => setOpenCase(c)} onAddToCart={(e) => handleAddToCart(c, e)} onAddMiniapp={(e) => handleAddMiniappToCart(c, e)} />
         ))}
       </div>
       <div className="hidden lg:grid container-main mx-auto max-w-6xl px-4 grid-cols-4 gap-6 pt-4 pb-4">
         {cases.map((c, i) => (
-          <CaseCard key={c.id} c={c} i={i} onOpen={() => setOpenCase(c)} onAddToCart={(e) => handleAddToCart(c, e)} />
+          <CaseCard key={c.id} c={c} i={i} onOpen={() => setOpenCase(c)} onAddToCart={(e) => handleAddToCart(c, e)} onAddMiniapp={(e) => handleAddMiniappToCart(c, e)} />
         ))}
       </div>
 
@@ -265,22 +265,32 @@ const CasesSection = () => {
                       <button
                         type="button"
                         onClick={() => handleAddToCart(openCase)}
-                        className="flex items-center justify-center gap-2 flex-1 text-center px-5 py-3.5 rounded-xl bg-foreground text-background text-sm font-bold active:scale-[0.98] transition-transform"
+                        className="flex items-center justify-center gap-2 flex-1 text-center px-4 py-3.5 rounded-xl bg-foreground text-background text-base font-extrabold whitespace-nowrap active:scale-[0.98] transition-transform"
                       >
-                        <ShoppingCart className="w-4 h-4" />
-                        Добавить в корзину
+                        <ShoppingCart className="w-4 h-4 shrink-0" />
+                        Добавить
                       </button>
                     )}
-                    <a
-                      href={purchaseHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`flex items-center justify-center text-center px-5 py-3.5 rounded-xl text-sm font-bold active:scale-[0.98] transition-transform ${
-                        openCase.product_id ? 'flex-1 bg-secondary text-foreground border border-border' : 'w-full bg-foreground text-background'
-                      }`}
-                    >
-                      {openCase.cta_text || 'Подробнее'}
-                    </a>
+                    {openCase.miniapp_product_id ? (
+                      <button
+                        type="button"
+                        onClick={() => handleAddMiniappToCart(openCase)}
+                        className="flex items-center justify-center text-center flex-1 px-4 py-3.5 rounded-xl bg-secondary text-foreground border border-border text-base font-extrabold whitespace-nowrap active:scale-[0.98] transition-transform"
+                      >
+                        {openCase.cta_text || 'MiniApp'}
+                      </button>
+                    ) : (
+                      <a
+                        href={purchaseHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`flex items-center justify-center text-center px-4 py-3.5 rounded-xl text-base font-extrabold whitespace-nowrap active:scale-[0.98] transition-transform ${
+                          openCase.product_id ? 'flex-1 bg-secondary text-foreground border border-border' : 'w-full bg-foreground text-background'
+                        }`}
+                      >
+                        {openCase.cta_text || 'Подробнее'}
+                      </a>
+                    )}
                   </div>
 
                   <div className="hidden md:flex px-8 pb-8 gap-3">
@@ -288,22 +298,32 @@ const CasesSection = () => {
                       <button
                         type="button"
                         onClick={() => handleAddToCart(openCase)}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity"
+                        className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-foreground text-background text-base font-extrabold whitespace-nowrap hover:opacity-90 transition-opacity"
                       >
-                        <ShoppingCart className="w-4 h-4" />
-                        Добавить в корзину
+                        <ShoppingCart className="w-4 h-4 shrink-0" />
+                        Добавить
                       </button>
                     )}
-                    <a
-                      href={purchaseHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`inline-flex items-center px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-                        openCase.product_id ? 'bg-secondary text-foreground border border-border hover:bg-secondary/80' : 'bg-foreground text-background hover:opacity-90'
-                      }`}
-                    >
-                      {openCase.cta_text || 'Подробнее'}
-                    </a>
+                    {openCase.miniapp_product_id ? (
+                      <button
+                        type="button"
+                        onClick={() => handleAddMiniappToCart(openCase)}
+                        className="inline-flex items-center px-6 py-3 rounded-lg text-base font-extrabold whitespace-nowrap bg-secondary text-foreground border border-border hover:bg-secondary/80 transition-colors"
+                      >
+                        {openCase.cta_text || 'MiniApp'}
+                      </button>
+                    ) : (
+                      <a
+                        href={purchaseHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`inline-flex items-center px-6 py-3 rounded-lg text-base font-extrabold whitespace-nowrap transition-colors ${
+                          openCase.product_id ? 'bg-secondary text-foreground border border-border hover:bg-secondary/80' : 'bg-foreground text-background hover:opacity-90'
+                        }`}
+                      >
+                        {openCase.cta_text || 'Подробнее'}
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>
@@ -312,37 +332,6 @@ const CasesSection = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!addFlow} onOpenChange={(o) => !o && setAddFlow(null)}>
-        <DialogContent className="max-w-sm rounded-2xl">
-          {addFlow && (
-            <div className="p-2 flex flex-col gap-4">
-              <div>
-                <h3 className="font-display text-lg font-bold">Добавить в корзину</h3>
-                <p className="text-sm text-muted-foreground mt-1">«{addFlow.title}»</p>
-              </div>
-
-              <label className="flex items-start gap-3 rounded-xl border border-border p-3 cursor-pointer hover:border-primary/40 transition-colors">
-                <Checkbox checked={wantsMiniapp} onCheckedChange={(v) => setWantsMiniapp(!!v)} className="mt-0.5" />
-                <span className="text-sm">
-                  <span className="font-medium">Добавить MiniApp</span>
-                  {miniappExtraCost > 0 && (
-                    <span className="text-muted-foreground"> (+{miniappExtraCost.toLocaleString('ru')} ₽)</span>
-                  )}
-                </span>
-              </label>
-
-              <button
-                type="button"
-                onClick={confirmAddFlow}
-                className="flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl bg-foreground text-background text-sm font-bold active:scale-[0.98] transition-transform"
-              >
-                <Check className="w-4 h-4" />
-                Добавить в корзину
-              </button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </section>
   );
 };

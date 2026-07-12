@@ -4,6 +4,7 @@ import { Search, ChevronDown, ChevronUp, Headphones, ArrowRight } from 'lucide-r
 import { Button } from '@/components/ui/button';
 import { useStorefront, useStorefrontPath } from '@/contexts/StorefrontContext';
 import { useProducts } from '@/hooks/useProducts';
+import { isSpecialProduct } from '@/components/SpecialProductCards';
 
 const FAQ = () => {
   const { shopName, supportLink } = useStorefront();
@@ -12,10 +13,11 @@ const FAQ = () => {
   const [search, setSearch] = useState('');
   const [openItems, setOpenItems] = useState<string[]>([]);
   const { data: allProducts } = useProducts();
-  const featured = (allProducts || [])
+  const eligible = (allProducts || []).filter(p => !isSpecialProduct(p) && !(p as any).hidden_from_catalog);
+  const featured = eligible
     .filter(p => p.is_featured || p.is_popular || p.is_new)
     .slice(0, 8);
-  const showcase = featured.length ? featured : (allProducts || []).slice(0, 8);
+  const showcase = featured.length ? featured : eligible.slice(0, 8);
 
   const faqData = [
     {

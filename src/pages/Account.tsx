@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import OrderDetailSheet from '@/components/OrderDetailSheet';
 import BalanceDetailSheet from '@/components/BalanceDetailSheet';
 import { supabase } from '@/integrations/supabase/client';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -158,9 +159,20 @@ const Account = () => {
       const { data, error } = await supabase.functions.invoke('create-topup-invoice', {
         body: { initData, amount },
       });
-      // Edge function non-2xx: error is set, but data may also contain the parsed JSON body
+      // supabase-js does NOT auto-parse the JSON body of a non-2xx function response into
+      // `data` — it only sets `error`. The real message (e.g. "Платёжная система не
+      // настроена") lives in error.context and has to be read out manually, otherwise we
+      // always fall back to a useless generic message no matter what actually went wrong.
       if (error) {
-        const msg = data?.error || 'Ошибка пополнения. Попробуйте позже.';
+        let msg = 'Ошибка пополнения. Попробуйте позже.';
+        if (error instanceof FunctionsHttpError) {
+          try {
+            const body = await error.context.json();
+            if (body?.error) msg = body.error;
+          } catch {
+            // response wasn't JSON (e.g. function crashed with an HTML error page, or isn't deployed)
+          }
+        }
         throw new Error(msg);
       }
       if (data?.error) throw new Error(data.error);
