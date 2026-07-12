@@ -4,6 +4,7 @@ import { tg, deleteAndSend, safeSlice } from "../_shared/tg.ts";
 import { supabase, writeAuditLog } from "../_shared/db.ts";
 import { setSession, clearSession } from "../_shared/session.ts";
 import { uploadTelegramPhoto } from "../_shared/upload.ts";
+import { PREMIUM_EMOJI, withEmojiIcon, tgEmoji } from "../_shared/premium_emoji.ts";
 
 function escapeHtml(s: string | null | undefined) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -46,7 +47,7 @@ export async function showBroadcastList(chatId: number, msgId?: number, page = 0
   rows.push(backMenu());
 
   await deleteAndSend(chatId, msgId, {
-    text: `📣 <b>Рассылки</b>\nВсего: <b>${total}</b>`,
+    text: `${tgEmoji(PREMIUM_EMOJI[63], "")} <b>Рассылки</b>\nВсего: <b>${total}</b>`,
     parse_mode: "HTML",
     reply_markup: { inline_keyboard: rows },
   });
@@ -57,16 +58,16 @@ export async function showBroadcast(chatId: number, msgId: number | undefined, i
   if (!b) return showBroadcastList(chatId, msgId, 0);
   const aud = AUDIENCES[b.audience] ?? { label: b.audience, desc: "" };
   const txt = [
-    `📣 <b>Рассылка</b>`,
-    `Статус: ${STATUS_ICON[b.status] ?? ""} <code>${escapeHtml(b.status)}</code>`,
-    `Аудитория: <b>${aud.label}</b> <i>(${escapeHtml(aud.desc)})</i>`,
+      `${tgEmoji(PREMIUM_EMOJI[63], "📣")} <b>Рассылка</b>`,
+    `Статус: ${tgEmoji(PREMIUM_EMOJI[6], "")} ?? ""} <code>${escapeHtml(b.status)}</code>`,
+    `Аудитория: <b>${tgEmoji(PREMIUM_EMOJI[62], "")}</b> <i>(${escapeHtml(aud.desc)})</i>`,
     `Отправлено: <b>${b.sent_count}</b> / <b>${b.total_count}</b> · Ошибок: <b>${b.failed_count}</b>`,
     b.cursor_telegram_id ? `Курсор: <code>${b.cursor_telegram_id}</code>` : "",
     `Дата: ${new Date(b.created_at).toLocaleString("ru-RU")}`,
     ``,
     b.photo_url ? `🖼 ${escapeHtml(b.photo_url)}\n` : "",
     escapeHtml(b.text || ""),
-    b.error_message ? `\n\n⚠️ ${escapeHtml(b.error_message)}` : "",
+    b.error_message ? `\n\n ${escapeHtml(b.error_message)}` : "",
   ].filter(Boolean).join("\n");
 
   const kb: any[] = [];
@@ -76,13 +77,13 @@ export async function showBroadcast(chatId: number, msgId: number | undefined, i
       text: (b.audience === k ? "• " : "") + v.label,
       callback_data: `a:bc:aud:${id}:${k}`,
     })));
-    kb.push([{ text: "🧪 Тест себе", callback_data: `a:bc:test:${id}` }]);
-    kb.push([{ text: "🚀 Отправить", callback_data: `a:bc:send:${id}` }]);
-    kb.push([{ text: "🗑 Удалить", callback_data: `a:bc:d:${id}` }]);
+  kb.push([withEmojiIcon({ text: " Тест себе", callback_data: `a:bc:test:${id}` }, PREMIUM_EMOJI[62])]);
+  kb.push([withEmojiIcon({ text: " Отправить", callback_data: `a:bc:send:${id}` }, PREMIUM_EMOJI[15])]);
+  kb.push([withEmojiIcon({ text: " Удалить", callback_data: `a:bc:d:${id}` }, PREMIUM_EMOJI[48])]);
   } else if (b.status === "sending") {
-    kb.push([{ text: "🔄 Обновить", callback_data: `a:bc:v:${id}` }]);
+    kb.push([withEmojiIcon({ text: " Обновить", callback_data: `a:bc:v:${id}` }, PREMIUM_EMOJI[52])]);
   } else if (b.status === "sent") {
-    kb.push([{ text: "🗑 Удалить", callback_data: `a:bc:d:${id}` }]);
+    kb.push([withEmojiIcon({ text: " Удалить", callback_data: `a:bc:d:${id}` }, PREMIUM_EMOJI[48])]);
   }
   kb.push([{ text: "← К списку", callback_data: "a:bc" }]);
   await deleteAndSend(chatId, msgId, { text: txt, parse_mode: "HTML", reply_markup: { inline_keyboard: kb } });

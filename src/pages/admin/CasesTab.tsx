@@ -28,6 +28,8 @@ const emptyCase = {
   cta_text: 'Подробнее',
   support_username: '',
   external_link: '',
+  product_id: null as string | null,
+  miniapp_product_id: null as string | null,
   is_active: true,
   sort_order: 0,
 };
@@ -36,6 +38,7 @@ type CaseRow = typeof emptyCase;
 
 const CasesTab = () => {
   const [cases, setCases] = useState<CaseRow[]>([]);
+  const [products, setProducts] = useState<{ id: string; title: string; price: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<CaseRow | null>(null);
   const [saving, setSaving] = useState(false);
@@ -43,8 +46,12 @@ const CasesTab = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const data = await adminApi.cases.list();
+      const [data, productList] = await Promise.all([
+        adminApi.cases.list(),
+        adminApi.products.list().catch(() => []),
+      ]);
       setCases(data);
+      setProducts(productList || []);
     } catch (e: any) {
       toast({ title: 'Не удалось загрузить кейсы', description: e?.message, variant: 'destructive' });
     } finally {
@@ -230,6 +237,44 @@ const CasesTab = () => {
               <Field label="Внешняя ссылка вместо Telegram-сообщения (необязательно)">
                 <Input value={editing.external_link ?? ''} onChange={(e) => setEditing({ ...editing, external_link: e.target.value })} placeholder="https://..." />
               </Field>
+
+              <div className="rounded-lg border border-border p-3 space-y-3">
+                <div className="text-sm font-medium">Добавление в корзину</div>
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Привяжите кейс к товару, чтобы кнопка «Добавить в корзину» реально добавляла его в общую корзину
+                  и проходила обычную оплату. Без привязки кнопка по-прежнему откроет чат с поддержкой.
+                </p>
+                <Field label="Товар для корзины">
+                  <select
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    value={editing.product_id ?? ''}
+                    onChange={(e) => setEditing({ ...editing, product_id: e.target.value || null })}
+                  >
+                    <option value="">— не привязан (открывать чат с поддержкой) —</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>{p.title} · {p.price} ₽</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Товар с MiniApp-версией (необязательно — цена уже с наценкой)">
+                  <select
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    value={editing.miniapp_product_id ?? ''}
+                    onChange={(e) => setEditing({ ...editing, miniapp_product_id: e.target.value || null })}
+                  >
+                    <option value="">— без варианта с MiniApp —</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>{p.title} · {p.price} ₽</option>
+                    ))}
+                  </select>
+                </Field>
+                {editing.miniapp_product_id && (
+                  <p className="text-xs text-muted-foreground">
+                    Если выбрано, на сайте при добавлении в корзину появится галочка «Добавить MiniApp» — покупатель
+                    сможет выбрать этот товар вместо обычного.
+                  </p>
+                )}
+              </div>
 
               <div className="flex items-center justify-between rounded-lg border border-border p-3">
                 <div className="text-sm font-medium">Показывать на сайте</div>

@@ -15,7 +15,7 @@ export async function showUsersMenu(chatId: number, msgId?: number) {
     reply_markup: {
       inline_keyboard: [
         [{ text: "🔎 Найти", callback_data: "a:u:s" }],
-        [{ text: "📋 Последние 10", callback_data: "a:u:recent" }],
+        [{ text: "📋 Последние 20", callback_data: "a:u:recent" }],
         backRow(),
       ],
     },
@@ -27,7 +27,7 @@ export async function showRecentUsers(chatId: number, msgId?: number) {
     .from("user_profiles")
     .select("telegram_id, first_name, username, balance, is_blocked, created_at")
     .order("created_at", { ascending: false })
-    .limit(10);
+    .limit(20);
   const rows = (data ?? []).map((u) => [{
     text: safeSlice(
       `${u.is_blocked ? "🚫 " : ""}${u.first_name ?? "—"}${u.username ? ` @${u.username}` : ""} · ${Number(u.balance).toFixed(2)}$`,

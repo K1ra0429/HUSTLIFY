@@ -19,6 +19,8 @@ export interface DbCase {
   cta_text: string;
   support_username: string | null;
   external_link: string | null;
+  product_id: string | null;
+  miniapp_product_id: string | null;
   is_active: boolean;
   sort_order: number;
 }

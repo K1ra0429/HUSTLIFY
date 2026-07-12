@@ -67,7 +67,7 @@ const WEBAPP_URL = Deno.env.get("WEBAPP_URL") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 
 const FALLBACK_WELCOME =
-  "👋 Добро пожаловать в наш магазин!\n\nНажмите кнопку ниже, чтобы открыть каталог 👇";
+  "👋 Добро пожаловать в наш магазин!\n\nНажмите кнопку ниже, чтобы открыть каталог";
 
 // --- Mandatory channel subscription (ОП) ---
 // Returns true if user is allowed (no OP set, admin, or subscribed). Otherwise

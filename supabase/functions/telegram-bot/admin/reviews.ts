@@ -1,6 +1,7 @@
 // Reviews moderation: list pending/approved/rejected, approve/reject/delete.
 import { deleteAndSend, safeSlice } from "../_shared/tg.ts";
 import { supabase, writeAuditLog } from "../_shared/db.ts";
+import { PREMIUM_EMOJI, tgEmoji } from "../_shared/premium_emoji.ts";
 
 function escapeHtml(s: string | null | undefined) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -55,7 +56,7 @@ export async function showReviewList(
   rows.push(backMenu());
 
   await deleteAndSend(chatId, msgId, {
-    text: `⭐ <b>Отзывы — ${escapeHtml(f.label)}</b>\nВсего: <b>${total}</b>`,
+    text: `${tgEmoji(PREMIUM_EMOJI.star, "⭐")} <b>Отзывы — ${escapeHtml(f.label)}</b>\nВсего: <b>${total}</b>`,
     parse_mode: "HTML",
     reply_markup: { inline_keyboard: rows },
   });
@@ -69,7 +70,7 @@ export async function showReview(chatId: number, msgId: number | undefined, id: 
   const stars = "★".repeat(r.rating || 0) + "☆".repeat(5 - (r.rating || 0));
 
   const txt = [
-    `⭐ <b>Отзыв</b>`,
+    `${tgEmoji(PREMIUM_EMOJI.star, "⭐")} <b>Отзыв</b>`,
     `Товар: <b>${escapeHtml(p?.title ?? r.product_id)}</b>`,
     `Автор: <b>${escapeHtml(r.author)}</b>` + (r.telegram_id ? ` (id ${r.telegram_id})` : ""),
     `Оценка: ${stars}`,

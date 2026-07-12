@@ -2,6 +2,7 @@
 import { tg, deleteAndSend, safeSlice } from "../_shared/tg.ts";
 import { supabase, writeAuditLog } from "../_shared/db.ts";
 import { setSession, clearSession } from "../_shared/session.ts";
+import { PREMIUM_EMOJI, tgEmoji } from "../_shared/premium_emoji.ts";
 
 const PAGE_SIZE = 8;
 
@@ -47,7 +48,7 @@ export async function showAutoOrderList(
   if (!data?.length) {
     rows.push([{ text: "← Меню", callback_data: "a:menu" }]);
     return deleteAndSend(chatId, msgId, {
-      text: `🤖 <b>Авто-заказы</b>\n\nПусто в разделе «${STATUS_LABEL[filter] ?? filter}».`,
+      text: `${tgEmoji(PREMIUM_EMOJI.robot, "🤖")} <b>Авто-заказы</b>\n\nПусто в разделе «${STATUS_LABEL[filter] ?? filter}».`,
       parse_mode: "HTML",
       reply_markup: { inline_keyboard: rows },
     });
@@ -78,7 +79,7 @@ export async function showAutoOrderList(
   rows.push([{ text: "← Меню", callback_data: "a:menu" }]);
 
   return deleteAndSend(chatId, msgId, {
-    text: `🤖 <b>Авто-заказы</b> · ${STATUS_LABEL[filter] ?? "всё"} (${total})`,
+    text: `${tgEmoji(PREMIUM_EMOJI.robot, "🤖")} <b>Авто-заказы</b> · ${STATUS_LABEL[filter] ?? "всё"} (${total})`,
     parse_mode: "HTML",
     reply_markup: { inline_keyboard: rows },
   });
@@ -109,7 +110,7 @@ export async function showAutoOrder(chatId: number, msgId: number | undefined, o
   const delivered = order.auto_delivered_at
     ? new Date(order.auto_delivered_at).toLocaleString("ru-RU") : null;
 
-  let text = `🤖 <b>Авто-заказ ${escapeHtml(order.order_number)}</b>\n\n` +
+  let text = `${tgEmoji(PREMIUM_EMOJI.robot, "🤖")} <b>Авто-заказ ${escapeHtml(order.order_number)}</b>\n\n` +
     `${itemsText}\n\n` +
     `💰 Сумма: $${Number(order.total_amount).toFixed(2)}\n` +
     `👤 Покупатель: <code>${order.telegram_id}</code>\n` +

@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Flame, HelpCircle, X, Sparkles } from 'lucide-react';
+import { Flame, HelpCircle, X, Sparkles, ShoppingCart, Check } from 'lucide-react';
 import { Dialog, DialogContent, DialogClose } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { toast } from 'sonner';
 import { useSiteSettings } from '@/hooks/useShop';
 import { useCases, type DbCase } from '@/hooks/useCases';
+import { useProducts } from '@/hooks/useProducts';
+import { useStore } from '@/contexts/StoreContext';
+import type { DbProduct } from '@/types/database';
 
-const CaseCard = ({ c, i, onOpen }: { c: DbCase; i: number; onOpen: () => void }) => {
+const CaseCard = ({ c, i, onOpen, onAddToCart }: { c: DbCase; i: number; onOpen: () => void; onAddToCart: (e: React.MouseEvent) => void }) => {
   const highlightStyle = c.highlight_enabled
     ? {
         boxShadow: `0 0 0 1px ${c.highlight_color}e6, 0 0 18px 2px ${c.highlight_color}8c, 0 0 42px 6px ${c.highlight_color}40`,
@@ -14,13 +19,15 @@ const CaseCard = ({ c, i, onOpen }: { c: DbCase; i: number; onOpen: () => void }
   const cardBgStyle = c.background_color ? { backgroundColor: c.background_color } : undefined;
 
   return (
-    <motion.button
-      type="button"
+    <motion.div
+      role="button"
+      tabIndex={0}
       onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onOpen(); }}
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: i * 0.06, duration: 0.4 }}
-      className={`relative flex flex-col rounded-2xl overflow-hidden text-left w-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+      className={`relative flex flex-col rounded-2xl overflow-hidden text-left w-full transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
         c.highlight_enabled ? 'animate-[neon-pulse_2.2s_ease-in-out_infinite]' : 'border border-border hover:border-primary/40'
       }`}
       style={{ willChange: c.highlight_enabled ? 'filter' : undefined, ...(c.highlight_enabled ? undefined : cardBgStyle) }}
@@ -63,22 +70,74 @@ const CaseCard = ({ c, i, onOpen }: { c: DbCase; i: number; onOpen: () => void }
                 <span className="text-xs text-muted-foreground line-through">{c.old_price.toLocaleString('ru')} ₽</span>
               ) : null}
             </div>
-            <span className="mt-2 self-start px-4 py-2 rounded-lg bg-foreground text-background text-xs font-semibold">
-              {c.cta_text || 'Подробнее'}
-            </span>
+            <button
+              type="button"
+              onClick={onAddToCart}
+              className="mt-2 self-start flex items-center gap-1.5 px-4 py-2 rounded-lg bg-foreground text-background text-xs font-semibold hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            >
+              <ShoppingCart className="w-3.5 h-3.5" />
+              {c.product_id ? (c.cta_text && c.cta_text !== 'Подробнее' ? c.cta_text : 'Добавить в корзину') : (c.cta_text || 'Подробнее')}
+            </button>
           </div>
         </div>
       </div>
-    </motion.button>
+    </motion.div>
   );
 };
 
 const CasesSection = () => {
   const [openCase, setOpenCase] = useState<DbCase | null>(null);
+  const [addFlow, setAddFlow] = useState<DbCase | null>(null);
+  const [wantsMiniapp, setWantsMiniapp] = useState(false);
   const { data: settings } = useSiteSettings();
   const { data: cases } = useCases();
+  const { data: allProducts } = useProducts();
+  const { addToCart } = useStore();
   const supportUser = (settings?.support_username || 'TeleStoreHelp').replace('@', '');
   const supportUrl = `https://t.me/${supportUser}`;
+
+  const findProduct = (id: string | null): DbProduct | undefined =>
+    id ? allProducts?.find((p) => p.id === id) : undefined;
+
+  const addCaseProductToCart = (c: DbCase, useMiniapp: boolean) => {
+    const product = findProduct(useMiniapp ? c.miniapp_product_id : c.product_id);
+    if (!product) {
+      toast.error('Товар для этого кейса ещё не привязан. Обратитесь в поддержку.');
+      return;
+    }
+    const ok = addToCart(product);
+    if (ok) toast.success(`«${product.title}» добавлен в корзину`);
+  };
+
+  const handleAddToCart = (c: DbCase, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!c.product_id) {
+      // Not linked to a real product yet — fall back to the old "see details / message support" flow.
+      setOpenCase(c);
+      return;
+    }
+    setOpenCase(null);
+    if (c.miniapp_product_id) {
+      setWantsMiniapp(false);
+      setAddFlow(c);
+    } else {
+      addCaseProductToCart(c, false);
+    }
+  };
+
+  const confirmAddFlow = () => {
+    if (!addFlow) return;
+    addCaseProductToCart(addFlow, wantsMiniapp);
+    setAddFlow(null);
+  };
+
+  const miniappExtraCost = (() => {
+    if (!addFlow) return 0;
+    const base = findProduct(addFlow.product_id);
+    const miniapp = findProduct(addFlow.miniapp_product_id);
+    if (!base || !miniapp) return 0;
+    return Number(miniapp.price) - Number(base.price);
+  })();
 
   useEffect(() => {
     if (!cases || cases.length === 0) return;
@@ -112,12 +171,12 @@ const CasesSection = () => {
       </div>
       <div className="lg:hidden grid grid-cols-2 gap-3 px-4 pt-4 pb-8">
         {cases.map((c, i) => (
-          <CaseCard key={c.id} c={c} i={i} onOpen={() => setOpenCase(c)} />
+          <CaseCard key={c.id} c={c} i={i} onOpen={() => setOpenCase(c)} onAddToCart={(e) => handleAddToCart(c, e)} />
         ))}
       </div>
       <div className="hidden lg:grid container-main mx-auto max-w-6xl px-4 grid-cols-4 gap-6 pt-4 pb-4">
         {cases.map((c, i) => (
-          <CaseCard key={c.id} c={c} i={i} onOpen={() => setOpenCase(c)} />
+          <CaseCard key={c.id} c={c} i={i} onOpen={() => setOpenCase(c)} onAddToCart={(e) => handleAddToCart(c, e)} />
         ))}
       </div>
 
@@ -202,29 +261,83 @@ const CasesSection = () => {
                   </div>
 
                   <div className="md:hidden absolute inset-x-0 bottom-0 px-4 pt-3 bg-gradient-to-t from-card via-card to-card/95 border-t border-border/60 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
-                    <a
-                      href={purchaseHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block w-full text-center px-5 py-3.5 rounded-xl bg-foreground text-background text-sm font-bold active:scale-[0.98] transition-transform"
-                    >
-                      {openCase.cta_text || 'Приобрести сейчас'}
-                    </a>
+                    {openCase.product_id ? (
+                      <button
+                        type="button"
+                        onClick={() => handleAddToCart(openCase)}
+                        className="flex items-center justify-center gap-2 w-full text-center px-5 py-3.5 rounded-xl bg-foreground text-background text-sm font-bold active:scale-[0.98] transition-transform"
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        Добавить в корзину
+                      </button>
+                    ) : (
+                      <a
+                        href={purchaseHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-full text-center px-5 py-3.5 rounded-xl bg-foreground text-background text-sm font-bold active:scale-[0.98] transition-transform"
+                      >
+                        {openCase.cta_text || 'Приобрести сейчас'}
+                      </a>
+                    )}
                   </div>
 
                   <div className="hidden md:block px-8 pb-8">
-                    <a
-                      href={purchaseHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-block px-5 py-2.5 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity"
-                    >
-                      {openCase.cta_text || 'Приобрести сейчас'}
-                    </a>
+                    {openCase.product_id ? (
+                      <button
+                        type="button"
+                        onClick={() => handleAddToCart(openCase)}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity"
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        Добавить в корзину
+                      </button>
+                    ) : (
+                      <a
+                        href={purchaseHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block px-5 py-2.5 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity"
+                      >
+                        {openCase.cta_text || 'Приобрести сейчас'}
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>
             </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!addFlow} onOpenChange={(o) => !o && setAddFlow(null)}>
+        <DialogContent className="max-w-sm rounded-2xl">
+          {addFlow && (
+            <div className="p-2 flex flex-col gap-4">
+              <div>
+                <h3 className="font-display text-lg font-bold">Добавить в корзину</h3>
+                <p className="text-sm text-muted-foreground mt-1">«{addFlow.title}»</p>
+              </div>
+
+              <label className="flex items-start gap-3 rounded-xl border border-border p-3 cursor-pointer hover:border-primary/40 transition-colors">
+                <Checkbox checked={wantsMiniapp} onCheckedChange={(v) => setWantsMiniapp(!!v)} className="mt-0.5" />
+                <span className="text-sm">
+                  <span className="font-medium">Добавить MiniApp</span>
+                  {miniappExtraCost > 0 && (
+                    <span className="text-muted-foreground"> (+{miniappExtraCost.toLocaleString('ru')} ₽)</span>
+                  )}
+                </span>
+              </label>
+
+              <button
+                type="button"
+                onClick={confirmAddFlow}
+                className="flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl bg-foreground text-background text-sm font-bold active:scale-[0.98] transition-transform"
+              >
+                <Check className="w-4 h-4" />
+                Добавить в корзину
+              </button>
+            </div>
           )}
         </DialogContent>
       </Dialog>
