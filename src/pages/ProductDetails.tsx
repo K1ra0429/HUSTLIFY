@@ -55,7 +55,7 @@ const ProductDetails = () => {
   }
 
   const discount = product.old_price ? Math.round((1 - Number(product.price) / Number(product.old_price)) * 100) : 0;
-  const similar = allProducts?.filter(p => p.category_id === product.category_id && p.id !== product.id && !isSpecialProduct(p)).slice(0, 4) || [];
+  const similar = allProducts?.filter(p => p.category_id === product.category_id && p.id !== product.id && !isSpecialProduct(p) && !(p as any).hidden_from_catalog).slice(0, 4) || [];
   const outOfStock = product.stock <= 0;
 
   return (

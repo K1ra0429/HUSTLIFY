@@ -21,7 +21,7 @@ const ProductShowcase = ({
   // Telegram Stars / Premium don't have a real product-detail page (they use
   // their own quantity/recipient card in the full catalog), so they're
   // excluded from this "pick a card → open detail page" showcase.
-  const eligible = (allProducts || []).filter(p => !isSpecialProduct(p));
+  const eligible = (allProducts || []).filter(p => !isSpecialProduct(p) && !(p as any).hidden_from_catalog);
 
   const featured = eligible
     .filter(p => p.is_featured || p.is_popular || p.is_new)

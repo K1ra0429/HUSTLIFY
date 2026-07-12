@@ -32,6 +32,7 @@ const emptyProduct = {
   is_featured: false,
   is_popular: false,
   is_new: false,
+  hidden_from_catalog: false,
   sort_order: 0,
 };
 
@@ -351,6 +352,7 @@ const ProductsTab = () => {
                 ['is_featured', 'Рекомендуемый'],
                 ['is_popular', 'Популярный'],
                 ['is_new', 'Новинка'],
+                ['hidden_from_catalog', 'Скрыть из каталога и подборок (доступен только по прямой привязке, напр. из кейса)'],
               ] as const).map(([key, label]) => (
                 <div key={key} className="flex items-center justify-between rounded-lg border border-border p-3">
                   <div className="text-sm font-medium">{label}</div>

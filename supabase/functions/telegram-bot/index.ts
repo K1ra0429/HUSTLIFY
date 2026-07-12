@@ -85,11 +85,11 @@ async function ensureSubscribed(chatId: number, userId: number): Promise<boolean
   } catch (_) { /* fallthrough */ }
 
   const kb: any[][] = [];
-  if (url?.startsWith("http")) kb.push([{ text: " Подписаться", url }]);
-  kb.push([{ text: " Я подписался", callback_data: "sub:check" }]);
+  if (url?.startsWith("http")) kb.push([{ text: "📢 Подписаться", url }]);
+  kb.push([{ text: "✅ Я подписался", callback_data: "sub:check" }]);
   await tg("sendMessage", {
     chat_id: chatId,
-    text: "Чтобы пользоваться ботом, подпишитесь на наш канал.\n\nПосле подписки нажмите «Я подписался».",
+    text: "🔒 Чтобы пользоваться ботом, подпишитесь на наш канал.\n\nПосле подписки нажмите «Я подписался».",
     reply_markup: { inline_keyboard: kb },
   });
   return false;
@@ -101,9 +101,9 @@ async function handleStart(chatId: number) {
   const url = WEBAPP_URL?.trim();
   let keyboard: any = undefined;
   if (url?.startsWith("https://")) {
-    keyboard = { inline_keyboard: [[{ text: "Открыть магазин", web_app: { url } }]] };
+    keyboard = { inline_keyboard: [[{ text: "🛍 Открыть магазин", web_app: { url } }]] };
   } else if (url?.startsWith("http://")) {
-    keyboard = { inline_keyboard: [[{ text: "Открыть магазин", url }]] };
+    keyboard = { inline_keyboard: [[{ text: "🛍 Открыть магазин", url }]] };
   }
   if (photo) {
     const r = await tg("sendPhoto", {
@@ -118,7 +118,7 @@ async function handleStart(chatId: number) {
 async function handleRep(adminChatId: number, adminId: number, args: string) {
   const match = args.match(/#?(\S+)/);
   if (!match) {
-    await tg("sendMessage", { chat_id: adminChatId, text: " Использование: /rep #номер_заказа" });
+    await tg("sendMessage", { chat_id: adminChatId, text: "❌ Использование: /rep #номер_заказа" });
     return;
   }
   const orderNumber = match[1].replace(/^#/, "");
@@ -130,7 +130,7 @@ async function handleRep(adminChatId: number, adminId: number, args: string) {
     .maybeSingle();
 
   if (!order) {
-    await tg("sendMessage", { chat_id: adminChatId, text: ` Заказ #${orderNumber} не найден.` });
+    await tg("sendMessage", { chat_id: adminChatId, text: `❌ Заказ #${orderNumber} не найден.` });
     return;
   }
 
@@ -141,7 +141,7 @@ async function handleRep(adminChatId: number, adminId: number, args: string) {
     .maybeSingle();
 
   const support = await getSetting("support_username", "support");
-  const body = (tpl?.body ?? "Ваш заказ {{order_number}} успешно обработан.")
+  const body = (tpl?.body ?? "✅ Ваш заказ {{order_number}} успешно обработан.")
     .replaceAll("{{order_number}}", `#${order.order_number}`)
     .replaceAll("{{support}}", support);
 
@@ -155,12 +155,12 @@ async function handleRep(adminChatId: number, adminId: number, args: string) {
   if (send?.ok) {
     await tg("sendMessage", {
       chat_id: adminChatId,
-      text: `Сообщение по заказу #${order.order_number} отправлено пользователю.`,
+      text: `✅ Сообщение по заказу #${order.order_number} отправлено пользователю.`,
     });
   } else {
     await tg("sendMessage", {
       chat_id: adminChatId,
-      text: `Не удалось доставить сообщение пользователю по заказу #${order.order_number}.\n${send?.description ?? ""}`,
+      text: `⚠️ Не удалось доставить сообщение пользователю по заказу #${order.order_number}.\n${send?.description ?? ""}`,
     });
   }
 }
@@ -173,7 +173,7 @@ async function handleAdminCallback(
   data: string,
 ) {
   if (!(await isAdminOrModerator(fromId))) {
-    await answerCallback(callbackId, "Только для администраторов", true);
+    await answerCallback(callbackId, "⛔ Только для администраторов", true);
     return;
   }
   await answerCallback(callbackId);
@@ -494,11 +494,11 @@ Deno.serve(async (req) => {
           } catch (_) { ok = false; }
         }
         if (ok) {
-          await answerCallback(cb.id, "Подписка подтверждена");
+          await answerCallback(cb.id, "✅ Подписка подтверждена");
           if (msgId) await tg("deleteMessage", { chat_id: chatId, message_id: msgId });
           await handleStart(chatId);
         } else {
-          await answerCallback(cb.id, "Подписка не найдена. Подпишитесь и попробуйте снова.", true);
+          await answerCallback(cb.id, "❌ Подписка не найдена. Подпишитесь и попробуйте снова.", true);
         }
         return new Response(JSON.stringify({ ok: true }), {
           headers: { "Content-Type": "application/json" },
@@ -538,7 +538,7 @@ Deno.serve(async (req) => {
             const { uploadTelegramPhoto } = await import("./_shared/upload.ts");
             const up = await uploadTelegramPhoto(fileId, "product-images", "welcome");
             if (!up.ok) {
-              await tg("sendMessage", { chat_id: chatId, text: `Не удалось загрузить фото: ${up.error}` });
+              await tg("sendMessage", { chat_id: chatId, text: `⚠️ Не удалось загрузить фото: ${up.error}` });
             } else {
               const { applyEditSetting } = await import("./admin/settings.ts");
               // Save photo URL; if caption present, also update welcome_text
@@ -560,13 +560,13 @@ Deno.serve(async (req) => {
         await handleStart(chatId);
       } else if (text.startsWith("/rep")) {
         if (!isAdmin(fromId)) {
-          await tg("sendMessage", { chat_id: chatId, text: "Команда доступна только администраторам." });
+          await tg("sendMessage", { chat_id: chatId, text: "⛔ Команда доступна только администраторам." });
         } else {
           await handleRep(chatId, fromId, text.replace(/^\/rep\s*/, ""));
         }
       } else if (text === "/admin" || text.startsWith("/admin ")) {
         if (!(await isAdminOrModerator(fromId))) {
-          await tg("sendMessage", { chat_id: chatId, text: "Команда доступна только администраторам." });
+          await tg("sendMessage", { chat_id: chatId, text: "⛔ Команда доступна только администраторам." });
         } else {
           await sendAdminMenu(chatId, fromId);
         }

@@ -83,7 +83,7 @@ const Catalog = () => {
 
   const filtered = useMemo(() => {
     if (!products) return [];
-    let result = [...products];
+    let result = products.filter(p => !(p as any).hidden_from_catalog);
     if (search) result = result.filter(p => p.title.toLowerCase().includes(search.toLowerCase()) || p.subtitle.toLowerCase().includes(search.toLowerCase()));
     if (selectedCategory) result = result.filter(p => p.category_id === selectedCategory);
     if (selectedProject) result = result.filter(p => (p as any).project_id === selectedProject);

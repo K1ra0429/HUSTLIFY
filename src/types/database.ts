@@ -26,6 +26,7 @@ export interface DbProduct {
   is_featured: boolean;
   is_popular: boolean;
   is_new: boolean;
+  hidden_from_catalog: boolean;
   sort_order: number;
   slug: string | null;
   created_at: string;
