@@ -85,9 +85,9 @@ const CaseCard = ({
             <button
               type="button"
               onClick={c.product_id ? (isMiniappCta ? onAddMiniapp : onAddToCart) : onOpen}
-              className="mt-auto self-start flex items-center gap-1 px-2.5 py-1 rounded-md bg-foreground text-background text-[11px] font-bold whitespace-nowrap hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              className="mt-auto self-start flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-foreground text-background text-xs font-bold whitespace-nowrap hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
             >
-              <ShoppingCart className="w-3 h-3 shrink-0" />
+              <ShoppingCart className="w-3.5 h-3.5 shrink-0" />
               {c.product_id ? (isMiniappCta ? c.cta_text : 'Добавить') : (c.cta_text || 'Подробнее')}
             </button>
           </div>
