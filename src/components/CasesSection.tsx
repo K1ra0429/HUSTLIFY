@@ -27,13 +27,13 @@ const CaseCard = ({ c, i, onOpen, onAddToCart }: { c: DbCase; i: number; onOpen:
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: i * 0.06, duration: 0.4 }}
-      className={`relative flex flex-col rounded-2xl overflow-hidden text-left w-full transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+      className={`relative flex flex-col rounded-2xl overflow-hidden text-left w-full h-full transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
         c.highlight_enabled ? 'animate-[neon-pulse_2.2s_ease-in-out_infinite]' : 'border border-border hover:border-primary/40'
       }`}
       style={{ willChange: c.highlight_enabled ? 'filter' : undefined, ...(c.highlight_enabled ? undefined : cardBgStyle) }}
     >
-      <div className={c.highlight_enabled ? 'rounded-2xl p-[1.5px]' : 'contents'} style={c.highlight_enabled ? { ...highlightStyle, backgroundColor: c.highlight_color } : undefined}>
-        <div className="relative flex flex-col rounded-[calc(1rem-1.5px)] overflow-hidden" style={cardBgStyle ?? { backgroundColor: 'hsl(var(--card))' }}>
+      <div className={c.highlight_enabled ? 'rounded-2xl p-[1.5px] h-full' : 'contents'} style={c.highlight_enabled ? { ...highlightStyle, backgroundColor: c.highlight_color } : undefined}>
+        <div className="relative flex flex-col h-full rounded-[calc(1rem-1.5px)] overflow-hidden" style={cardBgStyle ?? { backgroundColor: 'hsl(var(--card))' }}>
           <div className="relative aspect-square bg-black flex items-center justify-center overflow-hidden">
             {c.image_url && (
               <img src={c.image_url} alt={c.title} className="w-full h-full object-cover" loading="lazy" />
@@ -61,7 +61,7 @@ const CaseCard = ({ c, i, onOpen, onAddToCart }: { c: DbCase; i: number; onOpen:
               </div>
             )}
           </div>
-          <div className="p-4 flex flex-col gap-2">
+          <div className="p-4 flex flex-col flex-1 gap-2">
             <h3 className="font-display text-lg font-bold tracking-tight">{c.title}</h3>
             <p className="text-xs text-muted-foreground line-clamp-2 min-h-[2rem]">{c.short_description}</p>
             <div className="flex items-baseline gap-2">
@@ -73,7 +73,7 @@ const CaseCard = ({ c, i, onOpen, onAddToCart }: { c: DbCase; i: number; onOpen:
             <button
               type="button"
               onClick={onAddToCart}
-              className="mt-2 self-start flex items-center gap-1.5 px-4 py-2 rounded-lg bg-foreground text-background text-xs font-semibold hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              className="mt-auto self-start flex items-center gap-1.5 px-4 py-2 rounded-lg bg-foreground text-background text-xs font-semibold hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
             >
               <ShoppingCart className="w-3.5 h-3.5" />
               {c.product_id ? (c.cta_text && c.cta_text !== 'Подробнее' ? c.cta_text : 'Добавить в корзину') : (c.cta_text || 'Подробнее')}
@@ -260,30 +260,31 @@ const CasesSection = () => {
                     </div>
                   </div>
 
-                  <div className="md:hidden absolute inset-x-0 bottom-0 px-4 pt-3 bg-gradient-to-t from-card via-card to-card/95 border-t border-border/60 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
-                    {openCase.product_id ? (
+                  <div className="md:hidden absolute inset-x-0 bottom-0 px-4 pt-3 bg-gradient-to-t from-card via-card to-card/95 border-t border-border/60 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] flex gap-2">
+                    {openCase.product_id && (
                       <button
                         type="button"
                         onClick={() => handleAddToCart(openCase)}
-                        className="flex items-center justify-center gap-2 w-full text-center px-5 py-3.5 rounded-xl bg-foreground text-background text-sm font-bold active:scale-[0.98] transition-transform"
+                        className="flex items-center justify-center gap-2 flex-1 text-center px-5 py-3.5 rounded-xl bg-foreground text-background text-sm font-bold active:scale-[0.98] transition-transform"
                       >
                         <ShoppingCart className="w-4 h-4" />
                         Добавить в корзину
                       </button>
-                    ) : (
-                      <a
-                        href={purchaseHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block w-full text-center px-5 py-3.5 rounded-xl bg-foreground text-background text-sm font-bold active:scale-[0.98] transition-transform"
-                      >
-                        {openCase.cta_text || 'Приобрести сейчас'}
-                      </a>
                     )}
+                    <a
+                      href={purchaseHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex items-center justify-center text-center px-5 py-3.5 rounded-xl text-sm font-bold active:scale-[0.98] transition-transform ${
+                        openCase.product_id ? 'flex-1 bg-secondary text-foreground border border-border' : 'w-full bg-foreground text-background'
+                      }`}
+                    >
+                      {openCase.cta_text || 'Подробнее'}
+                    </a>
                   </div>
 
-                  <div className="hidden md:block px-8 pb-8">
-                    {openCase.product_id ? (
+                  <div className="hidden md:flex px-8 pb-8 gap-3">
+                    {openCase.product_id && (
                       <button
                         type="button"
                         onClick={() => handleAddToCart(openCase)}
@@ -292,16 +293,17 @@ const CasesSection = () => {
                         <ShoppingCart className="w-4 h-4" />
                         Добавить в корзину
                       </button>
-                    ) : (
-                      <a
-                        href={purchaseHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-block px-5 py-2.5 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition-opacity"
-                      >
-                        {openCase.cta_text || 'Приобрести сейчас'}
-                      </a>
                     )}
+                    <a
+                      href={purchaseHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`inline-flex items-center px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                        openCase.product_id ? 'bg-secondary text-foreground border border-border hover:bg-secondary/80' : 'bg-foreground text-background hover:opacity-90'
+                      }`}
+                    >
+                      {openCase.cta_text || 'Подробнее'}
+                    </a>
                   </div>
                 </div>
               </div>
