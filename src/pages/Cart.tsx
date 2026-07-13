@@ -10,6 +10,7 @@ import { useCases } from '@/hooks/useCases';
 import { isSpecialProduct } from '@/components/SpecialProductCards';
 import { useTelegram } from '@/contexts/TelegramContext';
 import PriceRub from '@/components/PriceRub';
+import { USD_RUB_RATE } from '@/lib/sbp';
 
 const categoryEmoji: Record<string, string> = {
   'social-media': '📱', 'gaming': '🎮', 'streaming': '🎬', 'software': '🔑',
@@ -135,10 +136,11 @@ const Cart = () => {
                             const caseMatch = getCaseForProduct(item.product.id);
                             if (caseMatch) {
                               const caseLineRub = caseMatch.price * item.quantity;
+                              const caseLineUsd = caseLineRub / USD_RUB_RATE;
                               return (
                                 <>
                                   <div className="font-display font-bold text-sm sm:text-base">{caseLineRub.toLocaleString('ru')} ₽</div>
-                                  <span className="text-sm text-muted-foreground">≈ ${lineTotal.toFixed(2)}</span>
+                                  <span className="text-sm text-muted-foreground">≈ ${caseLineUsd.toFixed(2)}</span>
                                 </>
                               );
                             }
