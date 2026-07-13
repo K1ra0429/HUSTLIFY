@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useStore } from '@/contexts/StoreContext';
 import ProductCard from '@/components/ProductCard';
 import { useProducts } from '@/hooks/useProducts';
+import { useCases } from '@/hooks/useCases';
 import { isSpecialProduct } from '@/components/SpecialProductCards';
 import { useTelegram } from '@/contexts/TelegramContext';
 import PriceRub from '@/components/PriceRub';
@@ -23,6 +24,13 @@ const Cart = () => {
   } = useStore();
   const { user, initData } = useTelegram();
   const { data: products } = useProducts();
+  const { data: cases } = useCases();
+
+  // A cart line is a "case" if its product is linked from a case as the
+  // plain product or the MiniApp upsell product — those have their real
+  // price set in rubles on the case itself, not in the linked product's $ price.
+  const getCaseForProduct = (productId: string) =>
+    cases?.find(c => c.product_id === productId || c.miniapp_product_id === productId);
 
   const syncedOnce = useRef(false);
   useEffect(() => {
@@ -123,8 +131,24 @@ const Cart = () => {
                       </div>
                       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                         <div className="text-right">
-                          <div className="font-display font-bold text-sm sm:text-base">${lineTotal.toFixed(2)}</div>
-                          <PriceRub usd={lineTotal} />
+                          {(() => {
+                            const caseMatch = getCaseForProduct(item.product.id);
+                            if (caseMatch) {
+                              const caseLineRub = caseMatch.price * item.quantity;
+                              return (
+                                <>
+                                  <div className="font-display font-bold text-sm sm:text-base">{caseLineRub.toLocaleString('ru')} ₽</div>
+                                  <span className="text-sm text-muted-foreground">≈ ${lineTotal.toFixed(2)}</span>
+                                </>
+                              );
+                            }
+                            return (
+                              <>
+                                <div className="font-display font-bold text-sm sm:text-base">${lineTotal.toFixed(2)}</div>
+                                <PriceRub usd={lineTotal} />
+                              </>
+                            );
+                          })()}
                         </div>
                         <button onClick={() => removeFromCart(lineKey)} className="text-muted-foreground hover:text-destructive transition-colors">
                           <Trash2 className="w-4 h-4" />
