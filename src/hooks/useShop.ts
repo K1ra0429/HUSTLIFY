@@ -57,6 +57,7 @@ export const useProjectProducts = (projectId?: string) =>
         .select('*')
         .eq('is_active', true)
         .eq('project_id', projectId!)
+        .eq('hidden_from_catalog', false)
         .order('sort_order');
       if (error) throw error;
       return data as unknown as ExtendedProduct[];
