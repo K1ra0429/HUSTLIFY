@@ -67,7 +67,7 @@ const WEBAPP_URL = Deno.env.get("WEBAPP_URL") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 
 const FALLBACK_WELCOME =
-  "👋 Добро пожаловать в наш магазин!\n\nНажмите кнопку ниже, чтобы открыть каталог";
+  " Добро пожаловать в наш магазин!\n\nНажмите кнопку ниже, чтобы открыть каталог";
 
 // --- Mandatory channel subscription (ОП) ---
 // Returns true if user is allowed (no OP set, admin, or subscribed). Otherwise
@@ -101,9 +101,9 @@ async function handleStart(chatId: number) {
   const url = WEBAPP_URL?.trim();
   let keyboard: any = undefined;
   if (url?.startsWith("https://")) {
-    keyboard = { inline_keyboard: [[{ text: "🛍 Открыть магазин", web_app: { url } }]] };
+    keyboard = { inline_keyboard: [[{ text: "Открыть магазин", web_app: { url } }]] };
   } else if (url?.startsWith("http://")) {
-    keyboard = { inline_keyboard: [[{ text: "🛍 Открыть магазин", url }]] };
+    keyboard = { inline_keyboard: [[{ text: "Открыть магазин", url }]] };
   }
   if (photo) {
     const r = await tg("sendPhoto", {
