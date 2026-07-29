@@ -185,7 +185,7 @@ const CasesSection = () => {
           href="https://t.me/HustlifyCasesBot"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-secondary text-foreground border border-border text-sm font-bold whitespace-nowrap hover:bg-secondary/80 transition-colors w-full sm:w-auto"
+          className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-black border border-border text-sm font-bold whitespace-nowrap hover:bg-white/80 transition-colors w-full sm:w-auto"
         >
           Смотреть работы
         </a>
