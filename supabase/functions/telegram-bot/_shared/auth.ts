@@ -7,8 +7,8 @@ const RAW = Deno.env.get("ADMIN_TELEGRAM_IDS") ?? "";
 export const ADMIN_TELEGRAM_IDS = RAW.split(",").map((s) => s.trim()).filter(Boolean);
 
 export function isAdmin(tgId: number | string | null | undefined): boolean {
-  if (tgId === null || tgId === undefined) return false;
-  return ADMIN_TELEGRAM_IDS.includes(String(tgId));
+if (tgId === null || tgId === undefined) return false;
+return ADMIN_TELEGRAM_IDS.includes(String(tgId));
 }
 
 // Owners (isAdmin) OR active moderators from the `moderators` table get
@@ -18,13 +18,13 @@ export function isAdmin(tgId: number | string | null | undefined): boolean {
 // full owners inside the bot (products, orders, broadcasts, other
 // moderators, etc.), not a restricted subset.
 export async function isAdminOrModerator(tgId: number | string | null | undefined): Promise<boolean> {
-  if (isAdmin(tgId)) return true;
-  if (tgId === null || tgId === undefined) return false;
-  const { data } = await supabase
-    .from("moderators")
-    .select("telegram_id")
-    .eq("telegram_id", Number(tgId))
-    .eq("is_active", true)
-    .maybeSingle();
-  return !!data;
+if (isAdmin(tgId)) return true;
+if (tgId === null || tgId === undefined) return false;
+const { data } = await supabase
+  .from("moderators")
+  .select("telegram_id")
+  .eq("telegram_id", Number(tgId))
+  .eq("is_active", true)
+  .maybeSingle();
+return !!data;
 }
