@@ -7,6 +7,8 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
 import { adminApi } from '@/lib/adminApi';
+import { useConfirm } from './components/ConfirmDialog';
+import SearchInput from './components/SearchInput';
 
 const emptyProject = {
   id: '',
@@ -30,6 +32,8 @@ const ProjectsTab = () => {
   const [editing, setEditing] = useState<ProjectRow | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
+  const confirm = useConfirm();
 
   const load = async () => {
     setLoading(true);
@@ -69,7 +73,10 @@ const ProjectsTab = () => {
   };
 
   const remove = async (id: string) => {
-    if (!confirm('Удалить проект безвозвратно? Товары и категории, привязанные к нему, тоже удалятся.')) return;
+    if (!(await confirm({
+      description: 'Удалить проект безвозвратно? Товары и категории, привязанные к нему, тоже удалятся.',
+      confirmText: 'Удалить', destructive: true,
+    }))) return;
     try {
       await adminApi.projects.remove(id);
       toast({ title: 'Проект удалён' });
@@ -81,17 +88,23 @@ const ProjectsTab = () => {
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin" /></div>;
 
+  const filtered = projects.filter((p) =>
+    !search.trim() || p.title.toLowerCase().includes(search.trim().toLowerCase()));
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <p className="text-sm text-muted-foreground">Проекты, к которым привязываются категории и товары ({projects.length})</p>
-        <Button size="sm" onClick={() => { setIsNew(true); setEditing({ ...emptyProject, sort_order: projects.length }); }}>
-          <Plus className="w-4 h-4" /> Новый проект
-        </Button>
+        <div className="flex items-center gap-2">
+          <SearchInput value={search} onChange={setSearch} placeholder="Поиск по названию…" />
+          <Button size="sm" onClick={() => { setIsNew(true); setEditing({ ...emptyProject, sort_order: projects.length }); }}>
+            <Plus className="w-4 h-4" /> Новый проект
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-2">
-        {projects.map((p) => (
+        {filtered.map((p) => (
           <div key={p.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
             <div className="w-10 h-10 rounded-lg bg-black flex items-center justify-center text-lg shrink-0">{p.icon}</div>
             <div className="min-w-0 flex-1">
@@ -105,7 +118,11 @@ const ProjectsTab = () => {
             <Button size="icon" variant="ghost" onClick={() => remove(p.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
           </div>
         ))}
-        {projects.length === 0 && <div className="text-sm text-muted-foreground text-center py-8">Пока нет ни одного проекта</div>}
+        {filtered.length === 0 && (
+          <div className="text-sm text-muted-foreground text-center py-8">
+            {projects.length === 0 ? 'Пока нет ни одного проекта' : 'Ничего не найдено'}
+          </div>
+        )}
       </div>
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>

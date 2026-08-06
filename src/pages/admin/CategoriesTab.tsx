@@ -6,6 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
 import { adminApi } from '@/lib/adminApi';
+import { useConfirm } from './components/ConfirmDialog';
+import SearchInput from './components/SearchInput';
 
 const emptyCategory = {
   id: '',
@@ -32,6 +34,8 @@ const CategoriesTab = () => {
   const [editing, setEditing] = useState<CategoryRow | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
+  const confirm = useConfirm();
 
   const load = async () => {
     setLoading(true);
@@ -73,7 +77,7 @@ const CategoriesTab = () => {
   };
 
   const remove = async (id: string) => {
-    if (!confirm('Удалить категорию безвозвратно?')) return;
+    if (!(await confirm({ description: 'Удалить категорию безвозвратно?', confirmText: 'Удалить', destructive: true }))) return;
     try {
       await adminApi.categories.remove(id);
       toast({ title: 'Категория удалена' });
@@ -87,17 +91,23 @@ const CategoriesTab = () => {
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin" /></div>;
 
+  const filtered = categories.filter((c) =>
+    !search.trim() || c.name.toLowerCase().includes(search.trim().toLowerCase()));
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <p className="text-sm text-muted-foreground">Категории каталога ({categories.length})</p>
-        <Button size="sm" onClick={() => { setIsNew(true); setEditing({ ...emptyCategory, sort_order: categories.length }); }}>
-          <Plus className="w-4 h-4" /> Новая категория
-        </Button>
+        <div className="flex items-center gap-2">
+          <SearchInput value={search} onChange={setSearch} placeholder="Поиск по названию…" />
+          <Button size="sm" onClick={() => { setIsNew(true); setEditing({ ...emptyCategory, sort_order: categories.length }); }}>
+            <Plus className="w-4 h-4" /> Новая категория
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-2">
-        {categories.map((c) => (
+        {filtered.map((c) => (
           <div key={c.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
             <div className="w-10 h-10 rounded-lg bg-black flex items-center justify-center text-lg shrink-0">{c.icon}</div>
             <div className="min-w-0 flex-1">
@@ -113,7 +123,11 @@ const CategoriesTab = () => {
             <Button size="icon" variant="ghost" onClick={() => remove(c.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
           </div>
         ))}
-        {categories.length === 0 && <div className="text-sm text-muted-foreground text-center py-8">Пока нет ни одной категории</div>}
+        {filtered.length === 0 && (
+          <div className="text-sm text-muted-foreground text-center py-8">
+            {categories.length === 0 ? 'Пока нет ни одной категории' : 'Ничего не найдено'}
+          </div>
+        )}
       </div>
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>

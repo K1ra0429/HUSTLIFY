@@ -9,6 +9,8 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
 import { adminApi } from '@/lib/adminApi';
+import { useConfirm } from './components/ConfirmDialog';
+import SearchInput from './components/SearchInput';
 
 const emptyCase = {
   id: undefined as string | undefined,
@@ -42,6 +44,8 @@ const CasesTab = () => {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<CaseRow | null>(null);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
+  const confirm = useConfirm();
 
   const load = async () => {
     setLoading(true);
@@ -81,7 +85,7 @@ const CasesTab = () => {
   };
 
   const remove = async (id: string) => {
-    if (!confirm('Удалить кейс безвозвратно?')) return;
+    if (!(await confirm({ description: 'Удалить кейс безвозвратно?', confirmText: 'Удалить', destructive: true }))) return;
     try {
       await adminApi.cases.remove(id);
       toast({ title: 'Кейс удалён' });
@@ -95,17 +99,23 @@ const CasesTab = () => {
     return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin" /></div>;
   }
 
+  const filtered = cases.filter((c) =>
+    !search.trim() || `${c.title} ${c.slug}`.toLowerCase().includes(search.trim().toLowerCase()));
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-muted-foreground">Карточки в разделе «Наши кейсы» на главной</p>
-        <Button size="sm" onClick={() => setEditing({ ...emptyCase, sort_order: cases.length })}>
-          <Plus className="w-4 h-4" /> Новый кейс
-        </Button>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <p className="text-sm text-muted-foreground">Карточки в разделе «Наши кейсы» на главной ({cases.length})</p>
+        <div className="flex items-center gap-2">
+          <SearchInput value={search} onChange={setSearch} placeholder="Поиск по названию…" />
+          <Button size="sm" onClick={() => setEditing({ ...emptyCase, sort_order: cases.length })}>
+            <Plus className="w-4 h-4" /> Новый кейс
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-2">
-        {cases.map((c) => (
+        {filtered.map((c) => (
           <div key={c.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
             <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
             <div className="w-12 h-12 rounded-lg bg-black overflow-hidden shrink-0">
@@ -123,8 +133,10 @@ const CasesTab = () => {
             <Button size="icon" variant="ghost" onClick={() => c.id && remove(c.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
           </div>
         ))}
-        {cases.length === 0 && (
-          <div className="text-sm text-muted-foreground text-center py-8">Пока нет ни одного кейса</div>
+        {filtered.length === 0 && (
+          <div className="text-sm text-muted-foreground text-center py-8">
+            {cases.length === 0 ? 'Пока нет ни одного кейса' : 'Ничего не найдено'}
+          </div>
         )}
       </div>
 

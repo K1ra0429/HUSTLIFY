@@ -3,6 +3,7 @@ import { Loader2, Check, X, Trash2, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { adminApi } from '@/lib/adminApi';
+import { useConfirm } from './components/ConfirmDialog';
 
 const FILTERS = [
   { key: 'pending', label: 'На модерации' },
@@ -15,6 +16,7 @@ const ReviewsTab = () => {
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<typeof FILTERS[number]['key']>('pending');
+  const confirm = useConfirm();
 
   const load = async () => {
     setLoading(true);
@@ -39,7 +41,7 @@ const ReviewsTab = () => {
   };
 
   const remove = async (id: string) => {
-    if (!confirm('Удалить отзыв безвозвратно?')) return;
+    if (!(await confirm({ description: 'Удалить отзыв безвозвратно?', confirmText: 'Удалить', destructive: true }))) return;
     try {
       await adminApi.reviews.remove(id);
       setReviews((r) => r.filter((x) => x.id !== id));
@@ -55,15 +57,18 @@ const ReviewsTab = () => {
   return (
     <div className="space-y-4">
       <div className="flex gap-2 flex-wrap">
-        {FILTERS.map((f) => (
-          <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            className={`text-xs px-3 py-1.5 rounded-full border ${filter === f.key ? 'bg-foreground text-background border-foreground' : 'border-border text-muted-foreground'}`}
-          >
-            {f.label}
-          </button>
-        ))}
+        {FILTERS.map((f) => {
+          const count = f.key === 'all' ? reviews.length : reviews.filter((r) => (r.moderation_status || (r.verified ? 'approved' : 'pending')) === f.key).length;
+          return (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`text-xs px-3 py-1.5 rounded-full border ${filter === f.key ? 'bg-foreground text-background border-foreground' : 'border-border text-muted-foreground'}`}
+            >
+              {f.label} {count > 0 && <span className="opacity-70">({count})</span>}
+            </button>
+          );
+        })}
       </div>
 
       <div className="space-y-2">

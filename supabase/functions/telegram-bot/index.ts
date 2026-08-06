@@ -64,6 +64,7 @@ startAddModerator, resetModeratorPassword, handleModeratorText,
 
 const TELEGRAM_WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
 const WEBAPP_URL = Deno.env.get("WEBAPP_URL") ?? "";
+const ADMIN_PANEL_URL = Deno.env.get("ADMIN_PANEL_URL") ?? "https://hustlify-ruby.vercel.app/admin";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 
 const FALLBACK_WELCOME =
@@ -568,6 +569,11 @@ try {
       if (!(await isAdminOrModerator(fromId))) {
         await tg("sendMessage", { chat_id: chatId, text: "Команда доступна только администраторам." });
       } else {
+        await tg("sendMessage", {
+          chat_id: chatId,
+          text: `Веб-версия админ-панели: ${ADMIN_PANEL_URL}`,
+          disable_web_page_preview: true,
+        });
         await sendAdminMenu(chatId, fromId);
       }
     } else if (text) {

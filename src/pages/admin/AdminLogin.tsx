@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Lock } from 'lucide-react';
+import { Loader2, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { adminApi } from '@/lib/adminApi';
@@ -26,11 +26,14 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
   return (
     <div className="min-h-dvh flex items-center justify-center bg-background px-4">
       <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 space-y-4">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-9 h-9 rounded-lg bg-foreground text-background flex items-center justify-center">
-            <Lock className="w-4 h-4" />
+        <div className="flex items-center gap-2.5 mb-1">
+          <div className="w-9 h-9 rounded-xl bg-foreground text-background flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-4 h-4" />
           </div>
-          <h1 className="font-display text-lg font-bold">Админ-панель</h1>
+          <div>
+            <h1 className="font-display text-base font-bold leading-tight">Hustlify Admin</h1>
+            <p className="text-xs text-muted-foreground">Панель управления магазином</p>
+          </div>
         </div>
         <div>
           <label className="text-xs text-muted-foreground mb-1.5 block">Пароль</label>

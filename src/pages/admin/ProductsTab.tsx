@@ -7,6 +7,8 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
 import { adminApi } from '@/lib/adminApi';
+import { useConfirm } from './components/ConfirmDialog';
+import SearchInput from './components/SearchInput';
 
 type GalleryItem = { url: string; link?: string; title?: string };
 
@@ -57,6 +59,8 @@ const ProductsTab = () => {
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingGalleryIndex, setUploadingGalleryIndex] = useState<number | null>(null);
+  const [search, setSearch] = useState('');
+  const confirm = useConfirm();
 
   const load = async () => {
     setLoading(true);
@@ -98,7 +102,7 @@ const ProductsTab = () => {
   };
 
   const remove = async (id: string) => {
-    if (!confirm('Удалить товар безвозвратно?')) return;
+    if (!(await confirm({ description: 'Удалить товар безвозвратно?', confirmText: 'Удалить', destructive: true }))) return;
     try {
       await adminApi.products.remove(id);
       toast({ title: 'Товар удалён' });
@@ -158,17 +162,23 @@ const ProductsTab = () => {
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin" /></div>;
 
+  const filtered = products.filter((p) =>
+    !search.trim() || p.title.toLowerCase().includes(search.trim().toLowerCase()));
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <p className="text-sm text-muted-foreground">Все товары каталога ({products.length})</p>
-        <Button size="sm" onClick={() => setEditing({ ...emptyProduct, sort_order: products.length })}>
-          <Plus className="w-4 h-4" /> Новый товар
-        </Button>
+        <div className="flex items-center gap-2">
+          <SearchInput value={search} onChange={setSearch} placeholder="Поиск по названию…" />
+          <Button size="sm" onClick={() => setEditing({ ...emptyProduct, sort_order: products.length })}>
+            <Plus className="w-4 h-4" /> Новый товар
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-2">
-        {products.map((p) => (
+        {filtered.map((p) => (
           <div key={p.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
             <div className="w-12 h-12 rounded-lg bg-black overflow-hidden shrink-0">
               {p.image && <img src={p.image} alt="" className="w-full h-full object-cover" />}
